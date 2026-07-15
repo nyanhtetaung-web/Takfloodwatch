@@ -1302,6 +1302,10 @@ html[lang="th"] .mobile-nav a {
   position: relative;
 }
 
+.map-canvas.forecast-mode {
+  min-height: 540px;
+}
+
 .leaflet-map {
   background: #d8e0dd;
   inset: 0;
@@ -1323,6 +1327,14 @@ html[lang="th"] .mobile-nav a {
 
 .leaflet-container .leaflet-popup-content {
   margin: 10px 12px;
+}
+
+.tmd-forecast-coverage {
+  animation: forecast-boundary-flow 5s linear infinite;
+}
+
+@keyframes forecast-boundary-flow {
+  to { stroke-dashoffset: -26; }
 }
 
 .leaflet-station-popup {
@@ -1706,6 +1718,154 @@ html[lang="th"] .mobile-nav a {
 .legend-dot.critical { background: var(--red); }
 .legend-dot.warning { background: var(--amber); }
 .legend-dot.watch { background: var(--blue); }
+.legend-dot.rainfall { background: #247da6; }
+
+.tmd-weather-brief {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #9dbdce;
+  border-top: 4px solid #165c91;
+  border-radius: 5px;
+  box-shadow: 0 8px 24px rgba(21, 59, 78, 0.17);
+  left: 14px;
+  max-width: 380px;
+  padding: 12px 14px 13px;
+  position: absolute;
+  top: 14px;
+  width: calc(100% - 82px);
+  z-index: 8;
+}
+
+.tmd-weather-heading {
+  align-items: center;
+  color: #165c91;
+  display: flex;
+  font-size: 9px;
+  font-weight: 800;
+  justify-content: space-between;
+  letter-spacing: 0;
+  margin-bottom: 7px;
+}
+
+.tmd-weather-heading > span {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.tmd-weather-heading i {
+  background: #20a375;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(32, 163, 117, 0.14);
+  height: 7px;
+  width: 7px;
+}
+
+.tmd-weather-heading a {
+  align-items: center;
+  color: #165c91;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.tmd-weather-brief > strong {
+  color: #173b50;
+  display: block;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.tmd-weather-brief > p {
+  color: #4b626e;
+  font-size: 11px;
+  margin: 3px 0 10px;
+}
+
+.tmd-weather-metrics {
+  border-bottom: 1px solid #d8e5eb;
+  border-top: 1px solid #d8e5eb;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 8px;
+}
+
+.tmd-weather-metrics > span {
+  align-items: center;
+  border-right: 1px solid #d8e5eb;
+  color: #28789e;
+  display: grid;
+  gap: 2px 5px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 8px 7px;
+}
+
+.tmd-weather-metrics > span:last-child { border-right: 0; }
+.tmd-weather-metrics small { color: #657b86; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tmd-weather-metrics b { color: #173b50; font-size: 10px; grid-column: 1 / -1; white-space: nowrap; }
+
+.forecast-scope-note {
+  color: #667c86;
+  display: block;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.forecast-timeline {
+  align-items: stretch;
+  background: rgba(248, 252, 253, 0.97);
+  border: 1px solid #9dbdce;
+  border-radius: 5px;
+  bottom: 28px;
+  box-shadow: 0 7px 20px rgba(21, 59, 78, 0.16);
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  left: 14px;
+  overflow: hidden;
+  position: absolute;
+  right: 14px;
+  z-index: 8;
+}
+
+.forecast-timeline-meta {
+  background: #164f78;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 12px;
+}
+
+.forecast-timeline-meta span { font-size: 10px; font-weight: 800; }
+.forecast-timeline-meta small { color: #d5e7f0; font-size: 7px; line-height: 1.35; margin-top: 4px; }
+
+.forecast-day-list {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(64px, 1fr));
+  min-width: 0;
+}
+
+.forecast-day-list button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid #d6e2e8;
+  color: #2b7195;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: center;
+  min-height: 82px;
+  padding: 6px 3px;
+}
+
+.forecast-day-list button:last-child { border-right: 0; }
+.forecast-day-list button:hover { background: #edf6f9; }
+.forecast-day-list button.active { background: #dceef5; box-shadow: inset 0 3px 0 #1779a5; color: #11587d; }
+.forecast-day-list small { color: #637985; font-size: 7px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.forecast-day-list b { color: #164f78; font-size: 11px; }
+.forecast-day-list span { color: #536a75; font-size: 8px; white-space: nowrap; }
 
 .map-credit {
   bottom: 3px;
@@ -3913,6 +4073,10 @@ html[lang="th"] .mobile-nav a {
     min-height: 460px;
   }
 
+  .map-canvas.forecast-mode {
+    min-height: 540px;
+  }
+
   .alerts-panel {
     max-height: 560px;
   }
@@ -4149,7 +4313,7 @@ html[lang="th"] .mobile-nav a {
 
   .map-data-layers {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     width: 100%;
   }
 
@@ -4170,6 +4334,57 @@ html[lang="th"] .mobile-nav a {
 
   .map-canvas {
     min-height: 410px;
+  }
+
+  .map-canvas.forecast-mode {
+    min-height: 560px;
+  }
+
+  .map-data-layers button {
+    font-size: 9px;
+    gap: 3px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .tmd-weather-brief {
+    left: 10px;
+    padding: 10px 11px 11px;
+    right: 52px;
+    top: 10px;
+    width: auto;
+  }
+
+  .tmd-weather-brief > strong { font-size: 12px; }
+  .tmd-weather-metrics > span { padding: 7px 4px; }
+  .tmd-weather-metrics b { font-size: 8px; }
+
+  .forecast-timeline {
+    bottom: 25px;
+    grid-template-columns: minmax(0, 1fr);
+    left: 7px;
+    right: 7px;
+  }
+
+  .forecast-timeline-meta {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 6px 9px;
+  }
+
+  .forecast-timeline-meta small { margin: 0 0 0 8px; }
+
+  .forecast-day-list {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .forecast-day-list button {
+    flex: 0 0 72px;
+    min-height: 76px;
   }
 
   .map-marker > span {
@@ -4447,6 +4662,7 @@ html[lang="th"] .mobile-nav a {
   .flood-marker,
   .flood-marker-halo,
   .river-point-halo { animation: none; }
+  .tmd-forecast-coverage { animation: none; }
   .flood-marker-halo { opacity: 0.2; }
   .river-point-halo { opacity: 0.25; }
 }

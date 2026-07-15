@@ -15,8 +15,13 @@ export type FloodMapPoint = {
   label: string;
   district: string;
   value: string;
-  tone: "critical" | "warning" | "watch" | "rainfall";
+  tone: "critical" | "warning" | "watch" | "rainfall" | "forecast";
   warningId?: string;
+};
+
+export type ForecastMapOverlay = {
+  rainChancePercent: number;
+  label: string;
 };
 
 type InteractiveMapProps = {
@@ -27,6 +32,7 @@ type InteractiveMapProps = {
   zoomInLabel: string;
   zoomOutLabel: string;
   centerLabel: string;
+  forecastOverlay?: ForecastMapOverlay | null;
   onSelectPoint: (point: FloodMapPoint) => void;
 };
 
@@ -37,6 +43,7 @@ const pointColors: Record<FloodMapPoint["tone"], string> = {
   warning: "#d77a0b",
   watch: "#227b75",
   rainfall: "#247da6",
+  forecast: "#165c91",
 };
 
 function buildPopup(point: FloodMapPoint) {
@@ -66,11 +73,13 @@ export default function InteractiveMap({
   zoomInLabel,
   zoomOutLabel,
   centerLabel,
+  forecastOverlay = null,
   onSelectPoint,
 }: InteractiveMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const tileRef = useRef<TileLayer | null>(null);
+  const forecastLayerRef = useRef<LayerGroup | null>(null);
   const pointLayerRef = useRef<LayerGroup | null>(null);
   const leafletRef = useRef<typeof import("leaflet") | null>(null);
   const selectPointRef = useRef(onSelectPoint);
@@ -98,6 +107,7 @@ export default function InteractiveMap({
 
       map.fitBounds(targetBounds, { padding: [24, 24] });
       mapRef.current = map;
+      forecastLayerRef.current = L.layerGroup().addTo(map);
       pointLayerRef.current = L.layerGroup().addTo(map);
       setReady(true);
     });
@@ -106,6 +116,7 @@ export default function InteractiveMap({
       active = false;
       setReady(false);
       tileRef.current = null;
+      forecastLayerRef.current = null;
       pointLayerRef.current = null;
       leafletRef.current = null;
       mapRef.current?.remove();
@@ -129,6 +140,28 @@ export default function InteractiveMap({
           maxZoom: 18,
         }).addTo(map);
   }, [baseMap, ready]);
+
+  useEffect(() => {
+    const L = leafletRef.current;
+    const layer = forecastLayerRef.current;
+    if (!ready || !L || !layer) return;
+
+    layer.clearLayers();
+    if (!forecastOverlay) return;
+
+    const probability = Math.max(0, Math.min(100, forecastOverlay.rainChancePercent));
+    const fillColor = probability >= 70 ? "#175a94" : probability >= 40 ? "#2b8eb2" : "#e2b84a";
+    const coverage = L.rectangle(targetBounds, {
+      color: "#15547f",
+      weight: 1.5,
+      dashArray: "7 6",
+      fillColor,
+      fillOpacity: 0.09 + probability / 500,
+      className: "tmd-forecast-coverage",
+    });
+    coverage.bindTooltip(forecastOverlay.label, { sticky: true, direction: "top" });
+    coverage.addTo(layer);
+  }, [forecastOverlay, ready]);
 
   useEffect(() => {
     const L = leafletRef.current;

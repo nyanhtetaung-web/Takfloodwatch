@@ -8,7 +8,8 @@ const SOURCES = {
   tmd: {
     name: "Thai Meteorological Department",
     shortName: "TMD",
-    url: "https://data.tmd.go.th/api/Weather3Hours/V2/?uid=api&ukey=api12345",
+    observationUrl: "https://data.tmd.go.th/api/Weather3Hours/V2/?uid=api&ukey=api12345",
+    forecastUrl: "https://data.tmd.go.th/api/WeatherForecast7Days/v2/?uid=api&ukey=api12345",
     publicUrl: "https://data.tmd.go.th/dataset/index.php",
   },
   water: {
@@ -93,33 +94,116 @@ function xmlValue(value: any) {
 }
 
 async function getWeather() {
-  const response = await fetchWithTimeout(SOURCES.tmd.url);
-  const xml = (await response.text()).replace(/&#x([0-9a-f]+);/gi, (_, code) =>
-    String.fromCodePoint(Number.parseInt(code, 16)),
-  );
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
-  const parsed = parser.parse(xml);
-  const stationNodes = asArray(parsed?.Weather3Hours?.Stations?.Station ?? parsed?.Weather3Hours?.Station);
+  const [observationResult, forecastResult] = await Promise.allSettled([
+    fetchWithTimeout(SOURCES.tmd.observationUrl),
+    fetchWithTimeout(SOURCES.tmd.forecastUrl),
+  ]);
 
-  const stations = stationNodes
-    .filter((station: any) => station?.Province === "ตาก" && TARGET_TMD_STATIONS.has(String(station?.StationNameEnglish ?? "")))
-    .map((station: any) => ({
-      code: String(xmlValue(station.WmoStationNumber) ?? ""),
-      name: String(station.StationNameEnglish ?? station.StationNameThai ?? "TMD station"),
-      observedAt: String(station.Observation?.DateTime ?? ""),
-      temperatureC: Number(xmlValue(station.Observation?.AirTemperature) ?? 0),
-      humidityPercent: Number(xmlValue(station.Observation?.RelativeHumidity) ?? 0),
-      rainfallMm: Number(xmlValue(station.Observation?.Rainfall) ?? 0),
-      rainfall24hMm: Number(xmlValue(station.Observation?.Rainfall24Hr) ?? 0),
-      windSpeedKmh: Number(xmlValue(station.Observation?.WindSpeed) ?? 0),
-      latitude: Number(xmlValue(station.Latitude) ?? 0),
-      longitude: Number(xmlValue(station.Longitude) ?? 0),
-    }))
-    .sort((a: any, b: any) => b.rainfall24hMm - a.rainfall24hMm);
+  if (observationResult.status === "rejected" && forecastResult.status === "rejected") {
+    throw new Error("TMD observation and forecast feeds unavailable");
+  }
+
+  let stations: Array<{
+    code: string;
+    name: string;
+    observedAt: string;
+    temperatureC: number;
+    humidityPercent: number;
+    rainfallMm: number;
+    rainfall24hMm: number;
+    windSpeedKmh: number;
+    latitude: number;
+    longitude: number;
+  }> = [];
+
+  if (observationResult.status === "fulfilled") {
+    const xml = (await observationResult.value.text()).replace(/&#x([0-9a-f]+);/gi, (_, code) =>
+      String.fromCodePoint(Number.parseInt(code, 16)),
+    );
+    const parsed = parser.parse(xml);
+    const stationNodes = asArray(parsed?.Weather3Hours?.Stations?.Station ?? parsed?.Weather3Hours?.Station);
+
+    stations = stationNodes
+      .filter((station: any) => station?.Province === "ตาก" && TARGET_TMD_STATIONS.has(String(station?.StationNameEnglish ?? "")))
+      .map((station: any) => ({
+        code: String(xmlValue(station.WmoStationNumber) ?? ""),
+        name: String(station.StationNameEnglish ?? station.StationNameThai ?? "TMD station"),
+        observedAt: String(station.Observation?.DateTime ?? ""),
+        temperatureC: Number(xmlValue(station.Observation?.AirTemperature) ?? 0),
+        humidityPercent: Number(xmlValue(station.Observation?.RelativeHumidity) ?? 0),
+        rainfallMm: Number(xmlValue(station.Observation?.Rainfall) ?? 0),
+        rainfall24hMm: Number(xmlValue(station.Observation?.Rainfall24Hr) ?? 0),
+        windSpeedKmh: Number(xmlValue(station.Observation?.WindSpeed) ?? 0),
+        latitude: Number(xmlValue(station.Latitude) ?? 0),
+        longitude: Number(xmlValue(station.Longitude) ?? 0),
+      }))
+      .sort((a: any, b: any) => b.rainfall24hMm - a.rainfall24hMm);
+  }
+
+  let forecast: {
+    province: string;
+    issuedAt: string;
+    days: Array<{
+      date: string;
+      maximumTemperatureC: number;
+      minimumTemperatureC: number;
+      windDirectionDegrees: number;
+      windSpeedKnots: number;
+      rainChancePercent: number;
+      descriptionEn: string;
+      descriptionTh: string;
+    }>;
+    sourceUrl: string;
+  } | null = null;
+
+  if (forecastResult.status === "fulfilled") {
+    const xml = (await forecastResult.value.text()).replace(/&#x([0-9a-f]+);/gi, (_, code) =>
+      String.fromCodePoint(Number.parseInt(code, 16)),
+    );
+    const parsed = parser.parse(xml);
+    const root = parsed?.WeatherForecast7Days;
+    const province = asArray<any>(root?.Provinces?.Province).find(
+      (item) => String(item?.ProvinceNameEnglish ?? "").trim().toLowerCase() === "tak",
+    );
+    const values = province?.SevenDaysForecast;
+    const dates = asArray<any>(values?.ForecastDate);
+    const maximums = asArray<any>(values?.MaximumTemperature);
+    const minimums = asArray<any>(values?.MinimumTemperature);
+    const windDirections = asArray<any>(values?.WindDirection);
+    const windSpeeds = asArray<any>(values?.WindSpeed);
+    const rainChances = asArray<any>(values?.PercentRainCover);
+    const descriptionsEn = asArray<any>(values?.DescriptionEnglish);
+    const descriptionsTh = asArray<any>(values?.DescriptionThai);
+
+    const days = dates.map((rawDate, index) => {
+      const [day, month, year] = String(xmlValue(rawDate) ?? "").split("/");
+      return {
+        date: year && month && day ? `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}` : "",
+        maximumTemperatureC: Number(xmlValue(maximums[index]) ?? 0),
+        minimumTemperatureC: Number(xmlValue(minimums[index]) ?? 0),
+        windDirectionDegrees: Number(xmlValue(windDirections[index]) ?? 0),
+        windSpeedKnots: Number(xmlValue(windSpeeds[index]) ?? 0),
+        rainChancePercent: Number(xmlValue(rainChances[index]) ?? 0),
+        descriptionEn: String(xmlValue(descriptionsEn[index]) ?? "Forecast unavailable"),
+        descriptionTh: String(xmlValue(descriptionsTh[index]) ?? ""),
+      };
+    }).filter((day) => day.date).sort((a, b) => a.date.localeCompare(b.date));
+
+    if (province && days.length > 0) {
+      forecast = {
+        province: String(province.ProvinceNameEnglish ?? "Tak"),
+        issuedAt: String(root?.header?.LastBuildDate ?? ""),
+        days,
+        sourceUrl: SOURCES.tmd.publicUrl,
+      };
+    }
+  }
 
   return {
     stations,
     observedAt: stations[0]?.observedAt ?? null,
+    forecast,
     sourceUrl: SOURCES.tmd.publicUrl,
   };
 }
@@ -315,7 +399,13 @@ export async function GET() {
       ddpm,
       population,
       sources: [
-        sourceStatus("tmd", SOURCES.tmd, weatherResult, "Live 3-hour observation", weather?.observedAt),
+        sourceStatus(
+          "tmd",
+          SOURCES.tmd,
+          weatherResult,
+          "Live observations and official 7-day forecast",
+          weather?.forecast?.issuedAt ?? weather?.observedAt,
+        ),
         sourceStatus("thaiwater", SOURCES.water, waterResult, "Live gauges and 24-hour rainfall", water?.observedAt),
         sourceStatus("roads", SOURCES.roads, roadsResult, "Official road-flood archive (2022)", "2022"),
         sourceStatus("ddpm", SOURCES.ddpm, ddpmResult, "Official shelter preparedness dataset", ddpm?.datasetUpdatedAt),

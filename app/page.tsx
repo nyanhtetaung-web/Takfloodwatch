@@ -28,6 +28,7 @@ import {
   TrendingUp,
   TriangleAlert,
   Users,
+  Wind,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -82,6 +83,24 @@ type WeatherStation = {
   longitude: number;
 };
 
+type WeatherForecastDay = {
+  date: string;
+  maximumTemperatureC: number;
+  minimumTemperatureC: number;
+  windDirectionDegrees: number;
+  windSpeedKnots: number;
+  rainChancePercent: number;
+  descriptionEn: string;
+  descriptionTh: string;
+};
+
+type WeatherForecast = {
+  province: string;
+  issuedAt: string;
+  days: WeatherForecastDay[];
+  sourceUrl: string;
+};
+
 type SourceStatus = {
   id: string;
   name: string;
@@ -94,7 +113,7 @@ type SourceStatus = {
 
 type GovernmentData = {
   generatedAt: string;
-  weather: { stations: WeatherStation[]; observedAt: string | null; sourceUrl: string } | null;
+  weather: { stations: WeatherStation[]; observedAt: string | null; forecast: WeatherForecast | null; sourceUrl: string } | null;
   water: {
     stations: WaterStation[];
     rainfallStations: RainStation[];
@@ -313,6 +332,37 @@ function localized(language: Language, english: string, burmese: string, thai: s
   return language === "my" ? burmese : language === "th" ? thai : english;
 }
 
+function formatForecastDate(value: string, language: Language, short = false) {
+  const date = new Date(`${value}T12:00:00+07:00`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  if (language === "my") {
+    const weekdays = ["တနင်္ဂနွေ", "တနင်္လာ", "အင်္ဂါ", "ဗုဒ္ဓဟူး", "ကြာသပတေး", "သောကြာ", "စနေ"];
+    const months = ["ဇန်နဝါရီ", "ဖေဖော်ဝါရီ", "မတ်", "ဧပြီ", "မေ", "ဇွန်", "ဇူလိုင်", "ဩဂုတ်", "စက်တင်ဘာ", "အောက်တိုဘာ", "နိုဝင်ဘာ", "ဒီဇင်ဘာ"];
+    const burmeseDay = String(date.getDate()).replace(/[0-9]/g, (digit) => "၀၁၂၃၄၅၆၇၈၉"[Number(digit)]);
+    return `${weekdays[date.getDay()]}${short ? "" : "နေ့"} ${burmeseDay} ${months[date.getMonth()]}`;
+  }
+
+  return new Intl.DateTimeFormat(language === "th" ? "th-TH" : "en-GB", {
+    weekday: short ? "short" : "long",
+    day: "numeric",
+    month: short ? "short" : "long",
+  }).format(date);
+}
+
+function forecastDescription(day: WeatherForecastDay, language: Language) {
+  if (language === "th") return day.descriptionTh || day.descriptionEn;
+  if (language === "en") return day.descriptionEn;
+
+  const description = day.descriptionEn.toLowerCase();
+  if (description.includes("heavy rain")) return "မိုးသည်းထန်စွာ ရွာနိုင်သည်";
+  if (description.includes("thunder")) return "မိုးကြိုးမုန်တိုင်းနှင့် မိုးရွာနိုင်သည်";
+  if (description.includes("rain")) return "မိုးရွာနိုင်သည်";
+  if (description.includes("cloud")) return "တိမ်ထူနိုင်သည်";
+  if (description.includes("clear") || description.includes("fair")) return "ကောင်းကင် ကြည်လင်နိုင်သည်";
+  return day.descriptionEn;
+}
+
 function RiverLevelChart({ station, language, sourceUrl, tr }: { station: WaterStation; language: Language; sourceUrl: string; tr: (text: string) => string }) {
   const bankLevel = station.levelMsl + station.bankDistanceM;
   const values = [station.previousLevelMsl, station.levelMsl, bankLevel];
@@ -387,8 +437,9 @@ export default function Home() {
   const [loadError, setLoadError] = useState(false);
   const [severity, setSeverity] = useState<"all" | Severity>("all");
   const [query, setQuery] = useState("");
-  const [mapLayer, setMapLayer] = useState<"warnings" | "rainfall" | "gauges">("warnings");
+  const [mapLayer, setMapLayer] = useState<"warnings" | "rainfall" | "gauges" | "forecast">("warnings");
   const [baseMap, setBaseMap] = useState<BaseMap>("streets");
+  const [selectedForecastIndex, setSelectedForecastIndex] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [selectedGaugeCode, setSelectedGaugeCode] = useState("");
@@ -500,6 +551,8 @@ export default function Home() {
   const connectedCount = data?.sources.filter((source) => source.status === "connected").length ?? 0;
   const sourceCount = data?.sources.length ?? 5;
   const maximumRainStation = data?.water?.rainfallStations?.[0] ?? null;
+  const forecastDays = data?.weather?.forecast?.days ?? [];
+  const selectedForecast = forecastDays[selectedForecastIndex] ?? forecastDays[0] ?? null;
   const selectedGauge = data?.water?.stations.find((station) => station.code === selectedGaugeCode) ?? data?.water?.stations[0] ?? null;
   const publishedWarning = publishedWarnings.find((warning) => savedAlertDistrict === "All districts" || warning.district === "All districts" || warning.district === savedAlertDistrict) ?? null;
   const publishedWarningTitle = publishedWarning ? language === "my" ? publishedWarning.titleMy : language === "th" ? publishedWarning.titleTh : publishedWarning.titleEn : "";
@@ -530,6 +583,24 @@ export default function Home() {
       }));
     }
 
+    if (mapLayer === "forecast") {
+      if (!selectedForecast) return [];
+      return [{
+        id: `tmd-forecast-${selectedForecast.date}`,
+        latitude: 16.82,
+        longitude: 98.62,
+        label: localized(language, "Tak Province forecast", "တက်ခ်ခရိုင် မိုးလေဝသခန့်မှန်းချက်", "พยากรณ์จังหวัดตาก"),
+        district: localized(language, "Five western Tak districts", "တက်ခ်အနောက်ပိုင်း ခရိုင် ၅ ခု", "5 อำเภอฝั่งตะวันตกของตาก"),
+        value: localized(
+          language,
+          `${forecastDescription(selectedForecast, language)} · ${selectedForecast.rainChancePercent}% rain · ${selectedForecast.minimumTemperatureC}-${selectedForecast.maximumTemperatureC} C`,
+          `${forecastDescription(selectedForecast, language)} · မိုးရွာနိုင်ခြေ ${selectedForecast.rainChancePercent}% · ${selectedForecast.minimumTemperatureC}-${selectedForecast.maximumTemperatureC} C`,
+          `${forecastDescription(selectedForecast, language)} · โอกาสฝน ${selectedForecast.rainChancePercent}% · ${selectedForecast.minimumTemperatureC}-${selectedForecast.maximumTemperatureC} C`,
+        ),
+        tone: "forecast",
+      }];
+    }
+
     return (data?.water?.stations ?? []).map((station) => ({
       id: station.code,
       latitude: station.latitude,
@@ -540,7 +611,7 @@ export default function Home() {
       tone: station.situationLevel >= 5 ? "critical" : station.situationLevel >= 4 ? "warning" : "watch",
       warningId: station.situationLevel >= 4 ? station.code : undefined,
     }));
-  }, [alerts, data, language, mapLayer]);
+  }, [alerts, data, language, mapLayer, selectedForecast]);
 
   return (
     <main className="app-shell">
@@ -656,6 +727,9 @@ export default function Home() {
                 <button className={mapLayer === "rainfall" ? "active" : ""} type="button" onClick={() => setMapLayer("rainfall")}>
                   <CloudRain size={15} /> {tr("Rainfall")}
                 </button>
+                <button className={mapLayer === "forecast" ? "active" : ""} type="button" onClick={() => setMapLayer("forecast")}>
+                  <Wind size={15} /> {localized(language, "Forecast", "ခန့်မှန်းချက်", "พยากรณ์")}
+                </button>
                 <button className={mapLayer === "gauges" ? "active" : ""} type="button" onClick={() => setMapLayer("gauges")}>
                   <Gauge size={15} /> {tr("All gauges")}
                 </button>
@@ -670,21 +744,70 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="map-canvas">
+            <div className={`map-canvas ${mapLayer === "forecast" ? "forecast-mode" : ""}`}>
               <InteractiveMap
-                baseMap={baseMap}
-                points={mapPoints}
-                selectedPointId={selected?.id ?? null}
-                ariaLabel={tr("Interactive monitoring map")}
-                zoomInLabel={tr("Zoom in")}
-                zoomOutLabel={tr("Zoom out")}
-                centerLabel={tr("Center map")}
-                onSelectPoint={(point) => { if (point.warningId) setSelectedId(point.warningId); }}
-              />
+                 baseMap={baseMap}
+                 points={mapPoints}
+                 selectedPointId={mapLayer === "forecast" ? mapPoints[0]?.id ?? null : selected?.id ?? null}
+                 ariaLabel={tr("Interactive monitoring map")}
+                 zoomInLabel={tr("Zoom in")}
+                 zoomOutLabel={tr("Zoom out")}
+                 centerLabel={tr("Center map")}
+                 forecastOverlay={mapLayer === "forecast" && selectedForecast ? {
+                   rainChancePercent: selectedForecast.rainChancePercent,
+                   label: localized(
+                     language,
+                     `TMD Tak forecast area: ${selectedForecast.rainChancePercent}% rain chance`,
+                     `TMD တက်ခ်ခရိုင် ခန့်မှန်းဧရိယာ: မိုးရွာနိုင်ခြေ ${selectedForecast.rainChancePercent}%`,
+                     `พื้นที่พยากรณ์ TMD ตาก: โอกาสฝน ${selectedForecast.rainChancePercent}%`,
+                   ),
+                 } : null}
+                 onSelectPoint={(point) => { if (point.warningId) setSelectedId(point.warningId); }}
+               />
 
-              {mapLayer === "warnings" && !loading && alerts.length === 0 && (
-                <div className="map-empty"><CheckCircle2 size={22} /><strong>{tr("No level 4-5 stations")}</strong><span>{tr("Based on the latest ThaiWater response.")}</span></div>
-              )}
+               {mapLayer === "warnings" && !loading && alerts.length === 0 && (
+                 <div className="map-empty"><CheckCircle2 size={22} /><strong>{tr("No level 4-5 stations")}</strong><span>{tr("Based on the latest ThaiWater response.")}</span></div>
+               )}
+
+               {mapLayer === "forecast" && !loading && !selectedForecast && (
+                 <div className="map-empty"><CloudRain size={22} /><strong>{localized(language, "TMD forecast unavailable", "TMD ခန့်မှန်းချက် မရရှိနိုင်ပါ", "ไม่พบข้อมูลพยากรณ์ TMD")}</strong><span>{localized(language, "Refresh to check the official feed again.", "တရားဝင်ဒေတာကို ပြန်စစ်ရန် ပြန်လည်ဖွင့်ပါ။", "รีเฟรชเพื่อตรวจสอบข้อมูลทางการอีกครั้ง")}</span></div>
+               )}
+
+               {mapLayer === "forecast" && selectedForecast && data?.weather?.forecast && (
+                 <>
+                   <article className="tmd-weather-brief" aria-live="polite">
+                     <div className="tmd-weather-heading">
+                       <span><i /> TMD {localized(language, "OFFICIAL FORECAST", "တရားဝင် ခန့်မှန်းချက်", "พยากรณ์ทางการ")}</span>
+                       <a href={data.weather.forecast.sourceUrl} target="_blank" rel="noreferrer" aria-label={localized(language, "Open TMD source", "TMD ရင်းမြစ် ဖွင့်ရန်", "เปิดแหล่งข้อมูล TMD")}><ExternalLink size={14} /></a>
+                     </div>
+                     <strong>{localized(language, "Tak Province", "တက်ခ်ခရိုင်", "จังหวัดตาก")} · {formatForecastDate(selectedForecast.date, language)}</strong>
+                     <p>{forecastDescription(selectedForecast, language)}</p>
+                     <div className="tmd-weather-metrics">
+                       <span><CloudRain size={16} /><small>{localized(language, "Rain chance", "မိုးရွာနိုင်ခြေ", "โอกาสฝน")}</small><b>{selectedForecast.rainChancePercent}%</b></span>
+                       <span><Thermometer size={16} /><small>{localized(language, "Temperature", "အပူချိန်", "อุณหภูมิ")}</small><b>{selectedForecast.minimumTemperatureC}-{selectedForecast.maximumTemperatureC} C</b></span>
+                       <span><Wind size={16} /><small>{localized(language, "Wind", "လေတိုက်နှုန်း", "ลม")}</small><b>{selectedForecast.windSpeedKnots} kt · {selectedForecast.windDirectionDegrees} deg</b></span>
+                     </div>
+                     <small className="forecast-scope-note">{localized(language, "Province-level forecast applied to the five-district view; not district-level radar.", "ခရိုင်အဆင့် ခန့်မှန်းချက်ကို ခရိုင် ၅ ခုမြေပုံတွင် ပြထားခြင်းဖြစ်ပြီး ခရိုင်တစ်ခုချင်း ရေဒါမဟုတ်ပါ။", "พยากรณ์ระดับจังหวัดที่แสดงบนพื้นที่ 5 อำเภอ ไม่ใช่เรดาร์ระดับอำเภอ")}</small>
+                   </article>
+
+                   <div className="forecast-timeline" aria-label={localized(language, "TMD seven-day forecast", "TMD ၇ ရက် မိုးလေဝသခန့်မှန်းချက်", "พยากรณ์อากาศ TMD 7 วัน")}>
+                     <div className="forecast-timeline-meta">
+                       <span>{localized(language, "7-DAY OUTLOOK", "၇ ရက် ခန့်မှန်းချက်", "แนวโน้ม 7 วัน")}</span>
+                       <small>{localized(language, "Issued", "ထုတ်ပြန်ချိန်", "ออกเมื่อ")} {formatFeedTime(data.weather.forecast.issuedAt, language)}</small>
+                     </div>
+                     <div className="forecast-day-list">
+                       {forecastDays.map((day, index) => (
+                         <button key={day.date} className={index === selectedForecastIndex ? "active" : ""} type="button" aria-pressed={index === selectedForecastIndex} onClick={() => setSelectedForecastIndex(index)}>
+                           <small>{formatForecastDate(day.date, language, true)}</small>
+                           <CloudRain size={17} />
+                           <b>{day.rainChancePercent}%</b>
+                           <span>{day.minimumTemperatureC}-{day.maximumTemperatureC} C</span>
+                         </button>
+                       ))}
+                     </div>
+                   </div>
+                 </>
+               )}
 
               {selected && mapLayer === "warnings" && (
                 <article className="map-callout">
@@ -695,11 +818,19 @@ export default function Home() {
                 </article>
               )}
 
-              <div className="map-legend">
-                <span><i className="legend-dot critical" /> {levelLabel(5, language)}</span>
-                <span><i className="legend-dot warning" /> {levelLabel(4, language)}</span>
-                <span><i className="legend-dot watch" /> {localized(language, "Level 1-3", "အဆင့် ၁-၃", "ระดับ 1-3")}</span>
-              </div>
+               {mapLayer !== "forecast" && (
+                 <div className="map-legend">
+                   {mapLayer === "rainfall" ? (
+                     <span><i className="legend-dot rainfall" /> {localized(language, "24-hour rain gauge", "၂၄ နာရီ မိုးရေချိန်စခန်း", "สถานีฝน 24 ชั่วโมง")}</span>
+                   ) : (
+                     <>
+                       <span><i className="legend-dot critical" /> {levelLabel(5, language)}</span>
+                       <span><i className="legend-dot warning" /> {levelLabel(4, language)}</span>
+                       <span><i className="legend-dot watch" /> {localized(language, "Level 1-3", "အဆင့် ၁-၃", "ระดับ 1-3")}</span>
+                     </>
+                   )}
+                 </div>
+               )}
             </div>
           </div>
 
