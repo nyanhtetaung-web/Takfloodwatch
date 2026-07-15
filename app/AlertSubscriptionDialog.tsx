@@ -70,6 +70,12 @@ const cadenceCopy: Record<Language, string> = {
   th: "เมื่อคำเตือนที่เจ้าหน้าที่อนุมัติยังมีผล ระบบจะส่งการแจ้งเตือนประมาณ 01:00, 07:00, 13:00 และ 19:00 น. ตามเวลาประเทศไทย",
 };
 
+const backgroundReadyCopy: Record<Language, string> = {
+  en: "Background alerts are now available. Subscribe again below to receive warnings when the dashboard is closed.",
+  my: "နောက်ခံသတိပေးချက်များ ယခုရရှိနိုင်ပါပြီ။ Dashboard ပိတ်ထားချိန်တွင်လည်း သတိပေးချက်ရရှိရန် အောက်တွင် ထပ်မံစာရင်းသွင်းပါ။",
+  th: "ขณะนี้การแจ้งเตือนเบื้องหลังพร้อมใช้งานแล้ว โปรดสมัครอีกครั้งด้านล่างเพื่อรับคำเตือนเมื่อปิดแดชบอร์ด",
+};
+
 const fallbackCopy = {
   en: {
     title: "Background alerts are unavailable in this browser",
@@ -152,12 +158,25 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
       setDeliveryMode("dashboard");
     }
     if (!supportsPush) return;
-    void navigator.serviceWorker.register("/sw.js")
-      .then((registration) => registration.pushManager.getSubscription())
-      .then((subscription) => {
-        if (!subscription) return;
-        setSubscribed(true);
-        setDeliveryMode("push");
+    void Promise.all([
+      navigator.serviceWorker.register("/sw.js"),
+      fetch("/api/alert-config", { cache: "no-store" }),
+    ])
+      .then(async ([registration, configResponse]) => {
+        const [subscription, config] = await Promise.all([
+          registration.pushManager.getSubscription(),
+          configResponse.json() as Promise<{ enabled?: boolean }>,
+        ]);
+        if (subscription) {
+          setSubscribed(true);
+          setDeliveryMode("push");
+          return;
+        }
+        if (savedMode === "dashboard" && config.enabled) {
+          setSubscribed(false);
+          setDeliveryMode(null);
+          setMessage(backgroundReadyCopy[language]);
+        }
       })
       .catch(() => undefined);
   }, [language, open]);
@@ -295,7 +314,7 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
           </div>
         )}
 
-        {message && <p className={`subscription-message ${subscribed || message === fallback.shared ? "success" : ""}`} role="status">{message}</p>}
+        {message && <p className={`subscription-message ${subscribed || message === fallback.shared || message === backgroundReadyCopy[language] ? "success" : ""}`} role="status">{message}</p>}
         <p className="subscription-privacy"><ShieldCheck size={15} /> {text.privacy}</p>
       </section>
     </div>
