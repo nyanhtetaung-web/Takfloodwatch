@@ -652,6 +652,53 @@ html[lang="th"] .mobile-nav a {
   margin-top: 20px;
 }
 
+.subscription-fallback {
+  align-items: start;
+  background: #f4f8f7;
+  border: 1px solid #c9dad5;
+  border-radius: 5px;
+  color: var(--teal-dark);
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 12px;
+}
+
+.subscription-fallback div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subscription-fallback strong {
+  font-size: 12px;
+}
+
+.subscription-fallback span {
+  color: #536c65;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.subscription-fallback button {
+  align-items: center;
+  background: white;
+  border: 1px solid #a9c3bb;
+  border-radius: 4px;
+  color: #315f53;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  gap: 6px;
+  grid-column: 2;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 10px;
+  width: fit-content;
+}
+
 .subscription-form > label:not(.subscription-consent) {
   display: flex;
   flex-direction: column;

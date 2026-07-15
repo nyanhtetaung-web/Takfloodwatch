@@ -396,6 +396,7 @@ export default function Home() {
   const [language, setLanguage] = useState<Language>("en");
   const [publishedWarnings, setPublishedWarnings] = useState<PublishedWarning[]>([]);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
+  const [savedAlertDistrict, setSavedAlertDistrict] = useState("All districts");
   const tr = useCallback((text: string) => language === "my" ? myTranslations[text] ?? text : language === "th" ? thaiTranslations[text] ?? text : text, [language]);
 
   const loadGovernmentData = useCallback(async () => {
@@ -437,6 +438,13 @@ export default function Home() {
   useEffect(() => {
     const savedLanguage = window.localStorage.getItem("floodwatch-language");
     if (savedLanguage === "en" || savedLanguage === "my" || savedLanguage === "th") setLanguage(savedLanguage);
+  }, []);
+
+  useEffect(() => {
+    const syncAlertPreferences = () => setSavedAlertDistrict(window.localStorage.getItem("floodwatch-alert-district") ?? "All districts");
+    syncAlertPreferences();
+    window.addEventListener("floodwatch-alert-preferences", syncAlertPreferences);
+    return () => window.removeEventListener("floodwatch-alert-preferences", syncAlertPreferences);
   }, []);
 
   useEffect(() => {
@@ -493,7 +501,7 @@ export default function Home() {
   const sourceCount = data?.sources.length ?? 5;
   const maximumRainStation = data?.water?.rainfallStations?.[0] ?? null;
   const selectedGauge = data?.water?.stations.find((station) => station.code === selectedGaugeCode) ?? data?.water?.stations[0] ?? null;
-  const publishedWarning = publishedWarnings[0] ?? null;
+  const publishedWarning = publishedWarnings.find((warning) => savedAlertDistrict === "All districts" || warning.district === "All districts" || warning.district === savedAlertDistrict) ?? null;
   const publishedWarningTitle = publishedWarning ? language === "my" ? publishedWarning.titleMy : language === "th" ? publishedWarning.titleTh : publishedWarning.titleEn : "";
   const publishedWarningBody = publishedWarning ? language === "my" ? publishedWarning.bodyMy : language === "th" ? publishedWarning.bodyTh : publishedWarning.bodyEn : "";
   const mapPoints = useMemo<FloodMapPoint[]>(() => {

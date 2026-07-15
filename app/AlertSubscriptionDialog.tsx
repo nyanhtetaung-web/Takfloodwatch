@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRing, CheckCircle2, ShieldCheck, X } from "lucide-react";
+import { BellRing, CheckCircle2, MonitorCheck, Share2, ShieldCheck, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type Language = "en" | "my" | "th";
@@ -64,6 +64,45 @@ const copy = {
   },
 } as const;
 
+const fallbackCopy = {
+  en: {
+    title: "Background alerts are unavailable in this browser",
+    detail: "Save your area and language for staff-approved warnings shown in this dashboard. The page checks for new warnings every minute while it is open.",
+    save: "Save dashboard alerts",
+    saved: "Dashboard alert preferences saved",
+    savedDetail: "This dashboard checks for new staff-approved warnings every minute while it is open.",
+    remove: "Remove saved alerts",
+    share: "Share or copy website link",
+    shared: "The website link is ready to open in Chrome, Edge, or Safari for background alerts.",
+    shareFailed: "Open this address in Chrome, Edge, or Safari: https://takfloodwatch.vercel.app",
+    configuredFallback: "Background delivery is temporarily unavailable.",
+  },
+  my: {
+    title: "ဤဘရောက်ဇာတွင် နောက်ခံအသိပေးချက် မရနိုင်ပါ",
+    detail: "ဤဒက်ရှ်ဘုတ်တွင် ပြသသော တာဝန်ရှိသူအတည်ပြု သတိပေးချက်များအတွက် နယ်မြေနှင့် ဘာသာစကားကို သိမ်းထားပါ။ စာမျက်နှာဖွင့်ထားစဉ် မိနစ်တိုင်း သတိပေးချက်အသစ်ကို စစ်ဆေးပါမည်။",
+    save: "ဒက်ရှ်ဘုတ် သတိပေးချက် သိမ်းမည်",
+    saved: "ဒက်ရှ်ဘုတ် သတိပေးချက် ရွေးချယ်မှု သိမ်းပြီးပါပြီ",
+    savedDetail: "ဤဒက်ရှ်ဘုတ်ဖွင့်ထားစဉ် တာဝန်ရှိသူအတည်ပြု သတိပေးချက်အသစ်ကို မိနစ်တိုင်း စစ်ဆေးပါမည်။",
+    remove: "သိမ်းထားသော သတိပေးချက် ဖယ်ရှားရန်",
+    share: "ဝဘ်ဆိုက်လင့်ခ် မျှဝေ သို့မဟုတ် ကူးယူရန်",
+    shared: "နောက်ခံအသိပေးချက်များအတွက် ဝဘ်ဆိုက်လင့်ခ်ကို Chrome၊ Edge သို့မဟုတ် Safari တွင် ဖွင့်နိုင်ပါပြီ။",
+    shareFailed: "ဤလိပ်စာကို Chrome၊ Edge သို့မဟုတ် Safari တွင် ဖွင့်ပါ: https://takfloodwatch.vercel.app",
+    configuredFallback: "နောက်ခံပို့ဆောင်မှုကို ယာယီအသုံးမပြုနိုင်ပါ။",
+  },
+  th: {
+    title: "เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนเบื้องหลัง",
+    detail: "บันทึกพื้นที่และภาษาสำหรับคำเตือนที่เจ้าหน้าที่อนุมัติซึ่งแสดงในแดชบอร์ด หน้านี้จะตรวจสอบคำเตือนใหม่ทุกนาทีขณะที่เปิดอยู่",
+    save: "บันทึกการเตือนในแดชบอร์ด",
+    saved: "บันทึกการตั้งค่าการเตือนในแดชบอร์ดแล้ว",
+    savedDetail: "แดชบอร์ดจะตรวจสอบคำเตือนใหม่ที่เจ้าหน้าที่อนุมัติทุกนาทีขณะที่เปิดอยู่",
+    remove: "ลบการเตือนที่บันทึกไว้",
+    share: "แชร์หรือคัดลอกลิงก์เว็บไซต์",
+    shared: "ลิงก์เว็บไซต์พร้อมเปิดใน Chrome, Edge หรือ Safari เพื่อรับการแจ้งเตือนเบื้องหลัง",
+    shareFailed: "เปิดที่อยู่นี้ใน Chrome, Edge หรือ Safari: https://takfloodwatch.vercel.app",
+    configuredFallback: "การส่งการแจ้งเตือนเบื้องหลังไม่พร้อมใช้งานชั่วคราว",
+  },
+} as const;
+
 const districtLabels: Record<Language, Record<string, string>> = {
   en: { "All districts": "All five districts", "Mae Sot": "Mae Sot", Umphang: "Umphang", "Tha Song Yang": "Tha Song Yang", "Mae Ramat": "Mae Ramat", "Phop Phra": "Phop Phra" },
   my: { "All districts": "ခရိုင်ငါးခုလုံး", "Mae Sot": "မဲဆောက်", Umphang: "အုန်းဖန်", "Tha Song Yang": "သာဆောင်ယန်း", "Mae Ramat": "မယ်ရမတ်", "Phop Phra": "ဖုပ်ဖရ" },
@@ -77,36 +116,80 @@ function applicationServerKey(value: string) {
   return Uint8Array.from(bytes, (character) => character.charCodeAt(0));
 }
 
+function browserPushAvailable() {
+  return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+
 export default function AlertSubscriptionDialog({ language, open, onClose }: { language: Language; open: boolean; onClose: () => void }) {
   const text = copy[language];
+  const fallback = fallbackCopy[language];
   const [district, setDistrict] = useState<(typeof districts)[number]>("All districts");
   const [messageLanguage, setMessageLanguage] = useState<Language>(language);
   const [consent, setConsent] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState<"push" | "dashboard" | null>(null);
+  const [pushAvailable, setPushAvailable] = useState<boolean | null>(null);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    setMessageLanguage(language);
     const savedDistrict = window.localStorage.getItem("floodwatch-alert-district");
+    const savedLanguage = window.localStorage.getItem("floodwatch-alert-language");
+    const savedMode = window.localStorage.getItem("floodwatch-alert-mode");
     if (districts.includes(savedDistrict as (typeof districts)[number])) setDistrict(savedDistrict as (typeof districts)[number]);
-    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
-    void navigator.serviceWorker.register("/sw.js").then((registration) => registration.pushManager.getSubscription()).then((subscription) => setSubscribed(Boolean(subscription))).catch(() => undefined);
+    setMessageLanguage(savedLanguage === "en" || savedLanguage === "my" || savedLanguage === "th" ? savedLanguage : language);
+    const supportsPush = browserPushAvailable();
+    setPushAvailable(supportsPush);
+    if (savedMode === "dashboard") {
+      setSubscribed(true);
+      setDeliveryMode("dashboard");
+    }
+    if (!supportsPush) return;
+    void navigator.serviceWorker.register("/sw.js")
+      .then((registration) => registration.pushManager.getSubscription())
+      .then((subscription) => {
+        if (!subscription) return;
+        setSubscribed(true);
+        setDeliveryMode("push");
+      })
+      .catch(() => undefined);
   }, [language, open]);
+
+  function saveDashboardAlerts(prefix = "") {
+    window.localStorage.setItem("floodwatch-alert-district", district);
+    window.localStorage.setItem("floodwatch-alert-language", messageLanguage);
+    window.localStorage.setItem("floodwatch-alert-mode", "dashboard");
+    window.dispatchEvent(new Event("floodwatch-alert-preferences"));
+    setSubscribed(true);
+    setDeliveryMode("dashboard");
+    setMessage(prefix ? `${prefix} ${fallback.saved}` : fallback.saved);
+  }
+
+  async function shareWebsite() {
+    setMessage("");
+    try {
+      const url = "https://takfloodwatch.vercel.app";
+      if (navigator.share) await navigator.share({ title: document.title, url });
+      else await navigator.clipboard.writeText(url);
+      setMessage(fallback.shared);
+    } catch {
+      setMessage(fallback.shareFailed);
+    }
+  }
 
   async function subscribe() {
     setWorking(true);
     setMessage("");
     try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-        setMessage(text.unavailable);
+      if (!browserPushAvailable()) {
+        saveDashboardAlerts();
         return;
       }
       const configResponse = await fetch("/api/alert-config", { cache: "no-store" });
       const config = await configResponse.json() as { enabled?: boolean; publicKey?: string };
       if (!config.enabled || !config.publicKey) {
-        setMessage(text.notConfigured);
+        saveDashboardAlerts(fallback.configuredFallback);
         return;
       }
       const permission = await Notification.requestPermission();
@@ -124,7 +207,11 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
       });
       if (!response.ok) throw new Error("Subscription save failed");
       window.localStorage.setItem("floodwatch-alert-district", district);
+      window.localStorage.setItem("floodwatch-alert-language", messageLanguage);
+      window.localStorage.setItem("floodwatch-alert-mode", "push");
+      window.dispatchEvent(new Event("floodwatch-alert-preferences"));
       setSubscribed(true);
+      setDeliveryMode("push");
       setMessage(text.subscribed);
     } catch {
       setMessage(text.failed);
@@ -137,17 +224,23 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
     setWorking(true);
     setMessage("");
     try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      if (subscription) {
-        await fetch("/api/alert-subscriptions", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: subscription.endpoint }),
-        });
-        await subscription.unsubscribe();
+      if (deliveryMode === "push" && browserPushAvailable()) {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await fetch("/api/alert-subscriptions", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ endpoint: subscription.endpoint }),
+          });
+          await subscription.unsubscribe();
+        }
       }
+      window.localStorage.removeItem("floodwatch-alert-mode");
+      window.localStorage.removeItem("floodwatch-alert-language");
+      window.dispatchEvent(new Event("floodwatch-alert-preferences"));
       setSubscribed(false);
+      setDeliveryMode(null);
       setMessage("");
     } catch {
       setMessage(text.failed);
@@ -170,19 +263,32 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
         {subscribed ? (
           <div className="subscription-complete">
             <CheckCircle2 size={24} />
-            <div><strong>{text.subscribed}</strong><span>{text.privacy}</span></div>
-            <button type="button" onClick={() => void unsubscribe()} disabled={working}>{text.unsubscribe}</button>
+            <div>
+              <strong>{deliveryMode === "dashboard" ? fallback.saved : text.subscribed}</strong>
+              <span>{deliveryMode === "dashboard" ? fallback.savedDetail : text.privacy}</span>
+            </div>
+            <button type="button" onClick={() => void unsubscribe()} disabled={working}>{deliveryMode === "dashboard" ? fallback.remove : text.unsubscribe}</button>
           </div>
         ) : (
           <div className="subscription-form">
+            {pushAvailable === false && (
+              <div className="subscription-fallback" role="note">
+                <MonitorCheck size={21} />
+                <div><strong>{fallback.title}</strong><span>{fallback.detail}</span></div>
+                <button type="button" onClick={() => void shareWebsite()}><Share2 size={15} /> {fallback.share}</button>
+              </div>
+            )}
             <label><span>{text.district}</span><select value={district} onChange={(event) => setDistrict(event.target.value as (typeof districts)[number])}>{districts.map((item) => <option key={item} value={item}>{districtLabels[language][item]}</option>)}</select></label>
             <label><span>{text.language}</span><select value={messageLanguage} onChange={(event) => setMessageLanguage(event.target.value as Language)}><option value="en">English</option><option value="my">မြန်မာ</option><option value="th">ไทย</option></select></label>
             <label className="subscription-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>{text.consent}</span></label>
-            <button className="subscribe-submit" type="button" disabled={!consent || working} onClick={() => void subscribe()}><BellRing size={18} /> {working ? text.subscribing : text.subscribe}</button>
+            <button className="subscribe-submit" type="button" disabled={!consent || working} onClick={() => void subscribe()}>
+              {pushAvailable === false ? <MonitorCheck size={18} /> : <BellRing size={18} />}
+              {working ? text.subscribing : pushAvailable === false ? fallback.save : text.subscribe}
+            </button>
           </div>
         )}
 
-        {message && <p className={`subscription-message ${subscribed ? "success" : ""}`} role="status">{message}</p>}
+        {message && <p className={`subscription-message ${subscribed || message === fallback.shared ? "success" : ""}`} role="status">{message}</p>}
         <p className="subscription-privacy"><ShieldCheck size={15} /> {text.privacy}</p>
       </section>
     </div>
