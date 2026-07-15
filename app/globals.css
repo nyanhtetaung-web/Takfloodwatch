@@ -1727,7 +1727,7 @@ html[lang="th"] .mobile-nav a {
   border-radius: 5px;
   box-shadow: 0 8px 24px rgba(21, 59, 78, 0.17);
   left: 14px;
-  max-width: 380px;
+  max-width: 440px;
   padding: 12px 14px 13px;
   position: absolute;
   top: 14px;
@@ -1760,6 +1760,15 @@ html[lang="th"] .mobile-nav a {
   width: 7px;
 }
 
+.tmd-weather-heading i.model {
+  background: #2b8eb2;
+  box-shadow: 0 0 0 3px rgba(43, 142, 178, 0.16);
+}
+
+.tmd-weather-heading i.official {
+  background: #20a375;
+}
+
 .tmd-weather-heading a {
   align-items: center;
   color: #165c91;
@@ -1780,6 +1789,34 @@ html[lang="th"] .mobile-nav a {
   color: #4b626e;
   font-size: 11px;
   margin: 3px 0 10px;
+}
+
+.forecast-district-tabs {
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0 0 9px;
+}
+
+.forecast-district-tabs button {
+  background: #edf5f8;
+  border: 1px solid #c9dce4;
+  border-radius: 3px;
+  color: #48636f;
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 700;
+  line-height: 1.15;
+  min-height: 30px;
+  overflow-wrap: anywhere;
+  padding: 4px 3px;
+}
+
+.forecast-district-tabs button:hover { background: #e2f0f5; }
+.forecast-district-tabs button.active {
+  background: #165c91;
+  border-color: #165c91;
+  color: white;
 }
 
 .tmd-weather-metrics {
@@ -1810,6 +1847,21 @@ html[lang="th"] .mobile-nav a {
   font-size: 8px;
   line-height: 1.4;
 }
+
+.forecast-official-reference {
+  align-items: center;
+  background: #eef6f1;
+  border-left: 3px solid #20a375;
+  color: #315c4d;
+  display: flex;
+  font-size: 8px;
+  justify-content: space-between;
+  margin: 0 0 7px;
+  padding: 5px 7px;
+}
+
+.forecast-official-reference b { font-size: 8px; }
+.forecast-official-reference span { text-align: right; }
 
 .forecast-timeline {
   align-items: stretch;
@@ -1866,6 +1918,7 @@ html[lang="th"] .mobile-nav a {
 .forecast-day-list small { color: #637985; font-size: 7px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .forecast-day-list b { color: #164f78; font-size: 11px; }
 .forecast-day-list span { color: #536a75; font-size: 8px; white-space: nowrap; }
+.forecast-day-list em { color: #247da6; font-size: 7px; font-style: normal; font-weight: 700; white-space: nowrap; }
 
 .map-credit {
   bottom: 3px;
@@ -4337,7 +4390,7 @@ html[lang="th"] .mobile-nav a {
   }
 
   .map-canvas.forecast-mode {
-    min-height: 560px;
+    min-height: 620px;
   }
 
   .map-data-layers button {
@@ -4356,6 +4409,13 @@ html[lang="th"] .mobile-nav a {
   }
 
   .tmd-weather-brief > strong { font-size: 12px; }
+  .forecast-district-tabs {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+  .forecast-district-tabs button { flex: 0 0 68px; }
   .tmd-weather-metrics > span { padding: 7px 4px; }
   .tmd-weather-metrics b { font-size: 8px; }
 

@@ -17,11 +17,18 @@ export type FloodMapPoint = {
   value: string;
   tone: "critical" | "warning" | "watch" | "rainfall" | "forecast";
   warningId?: string;
+  forecastDistrict?: string;
 };
 
 export type ForecastMapOverlay = {
-  rainChancePercent: number;
+  rainChancePercent?: number;
   label: string;
+  zones?: Array<{
+    latitude: number;
+    longitude: number;
+    rainChancePercent: number;
+    label: string;
+  }>;
 };
 
 type InteractiveMapProps = {
@@ -149,7 +156,26 @@ export default function InteractiveMap({
     layer.clearLayers();
     if (!forecastOverlay) return;
 
-    const probability = Math.max(0, Math.min(100, forecastOverlay.rainChancePercent));
+    if (forecastOverlay.zones?.length) {
+      forecastOverlay.zones.forEach((zone) => {
+        const probability = Math.max(0, Math.min(100, zone.rainChancePercent));
+        const fillColor = probability >= 70 ? "#175a94" : probability >= 40 ? "#2b8eb2" : "#e2b84a";
+        const coverage = L.circle([zone.latitude, zone.longitude], {
+          radius: 26_000,
+          color: fillColor,
+          weight: 1.5,
+          dashArray: "7 6",
+          fillColor,
+          fillOpacity: 0.08 + probability / 650,
+          className: "tmd-forecast-coverage",
+        });
+        coverage.bindTooltip(zone.label, { sticky: true, direction: "top" });
+        coverage.addTo(layer);
+      });
+      return;
+    }
+
+    const probability = Math.max(0, Math.min(100, forecastOverlay.rainChancePercent ?? 0));
     const fillColor = probability >= 70 ? "#175a94" : probability >= 40 ? "#2b8eb2" : "#e2b84a";
     const coverage = L.rectangle(targetBounds, {
       color: "#15547f",

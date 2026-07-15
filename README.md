@@ -20,6 +20,7 @@ Set these in Vercel Project Settings for Production, Preview, and Development as
 - `VAPID_SUBJECT`: the deployed HTTPS URL or a `mailto:` contact
 - `ALERT_ADMIN_TOKEN`: a long private token for `/alerts-admin`
 - `CRON_SECRET`: a separate token for Vercel Cron
+- `TMD_NWP_API_TOKEN` (optional): a personal TMD Weather Forecast API OAuth token. When set, the five district point forecasts use official TMD NWP data. Without it, live multi-model point guidance is shown with the official TMD Tak forecast retained as the province reference.
 
 Never commit real tokens or `.env` files. The application creates its SQLite-compatible tables and indexes when the database is first accessed. `database-schema.sql` is included for review or manual initialization.
 
