@@ -7,7 +7,7 @@ FloodWatch Tak is a trilingual flood operations dashboard for Mae Sot, Umphang, 
 - Next.js on Vercel
 - Turso Cloud for reports, subscriptions, alerts, and delivery records
 - `@tursodatabase/serverless` for the remote database connection
-- Vercel Cron for government-feed draft evaluation
+- Vercel Cron for government-feed evaluation and scheduled active-warning reminders
 
 ## Required environment variables
 
@@ -62,4 +62,6 @@ Help and damage reports contain names, phone numbers, and locations. Restrict da
 
 Government endpoints can be delayed, unavailable, or revised. Confirm important readings with the source agency and local authorities before field action.
 
-The scheduled evaluator only creates draft warnings. An authorized staff member must review and publish all three language versions before notifications are sent.
+Four scheduled alert cycles run in approximate Thailand-time windows around 01:00, 07:00, 13:00, and 19:00. Each cycle evaluates government feeds and creates idempotent drafts. It also repeats the latest active, staff-approved warning for each affected district, at most once per subscriber per window. No all-clear message or unreviewed draft is pushed automatically.
+
+The Vercel configuration uses four distinct once-daily cron paths because Hobby projects allow a given cron job to run only once per day. Cron execution can occur at any point within the configured hour.

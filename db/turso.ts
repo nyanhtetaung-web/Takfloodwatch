@@ -105,6 +105,14 @@ const schemaStatements = [
     error TEXT
   )`,
   "CREATE INDEX IF NOT EXISTS alert_deliveries_alert_idx ON alert_deliveries (alert_id, attempted_at)",
+  `CREATE TABLE IF NOT EXISTS alert_delivery_windows (
+    alert_id TEXT NOT NULL,
+    subscription_id TEXT NOT NULL,
+    window_key TEXT NOT NULL,
+    claimed_at TEXT NOT NULL,
+    PRIMARY KEY (alert_id, subscription_id, window_key)
+  )`,
+  "CREATE INDEX IF NOT EXISTS alert_delivery_windows_claimed_idx ON alert_delivery_windows (claimed_at)",
 ];
 
 export function getDatabase() {

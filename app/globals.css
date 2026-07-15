@@ -634,6 +634,14 @@ html[lang="th"] .mobile-nav a {
   margin: 0;
 }
 
+.subscription-cadence {
+  color: #3f6c61;
+  display: block;
+  font-size: 10px;
+  line-height: 1.45;
+  margin-top: 6px;
+}
+
 .subscription-icon {
   align-items: center;
   background: #e9f4f2;
@@ -786,6 +794,7 @@ html[lang="th"] .mobile-nav a {
 
 .subscription-complete strong { font-size: 12px; }
 .subscription-complete span { color: #527064; font-size: 10px; }
+.subscription-complete .subscription-cadence { margin-top: 2px; }
 
 .subscription-complete button {
   background: white;

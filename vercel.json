@@ -2,8 +2,20 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/alerts/evaluate",
+      "path": "/api/alerts/scheduled/01",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/alerts/scheduled/07",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/alerts/scheduled/13",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/alerts/scheduled/19",
+      "schedule": "0 12 * * *"
     }
   ]
 }

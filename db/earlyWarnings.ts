@@ -208,3 +208,18 @@ export async function recordAlertDelivery(input: { alertId: string; subscription
     ],
   );
 }
+
+export async function claimAlertDeliveryWindow(alertId: string, subscriptionId: string, windowKey: string) {
+  const result = await execute(
+    `INSERT INTO alert_delivery_windows (alert_id, subscription_id, window_key, claimed_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT (alert_id, subscription_id, window_key) DO NOTHING
+     RETURNING window_key`,
+    [alertId, subscriptionId, windowKey, new Date().toISOString()],
+  );
+  return result.rows.length > 0;
+}
+
+export async function pruneAlertDeliveryWindows(beforeIso: string) {
+  await execute("DELETE FROM alert_delivery_windows WHERE claimed_at < ?", [beforeIso]);
+}

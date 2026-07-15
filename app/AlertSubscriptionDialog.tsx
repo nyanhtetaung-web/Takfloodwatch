@@ -64,6 +64,12 @@ const copy = {
   },
 } as const;
 
+const cadenceCopy: Record<Language, string> = {
+  en: "While a staff-approved warning is active, reminders are scheduled around 01:00, 07:00, 13:00, and 19:00 Thailand time.",
+  my: "တာဝန်ရှိသူ အတည်ပြုထားသော သတိပေးချက် အသက်ဝင်နေစဉ် ထိုင်းစံတော်ချိန် 01:00၊ 07:00၊ 13:00 နှင့် 19:00 ဝန်းကျင်တွင် တစ်နေ့လျှင် လေးကြိမ် သတိပေးချက်ပို့ရန် စီစဉ်ထားသည်။",
+  th: "เมื่อคำเตือนที่เจ้าหน้าที่อนุมัติยังมีผล ระบบจะส่งการแจ้งเตือนประมาณ 01:00, 07:00, 13:00 และ 19:00 น. ตามเวลาประเทศไทย",
+};
+
 const fallbackCopy = {
   en: {
     title: "Background alerts are unavailable in this browser",
@@ -256,7 +262,7 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
       <section className="subscription-dialog" role="dialog" aria-modal="true" aria-labelledby="subscription-title">
         <header>
           <span className="subscription-icon"><BellRing size={22} /></span>
-          <div><h2 id="subscription-title">{text.title}</h2><p>{text.intro}</p></div>
+          <div><h2 id="subscription-title">{text.title}</h2><p>{text.intro}</p>{pushAvailable !== false && <small className="subscription-cadence">{cadenceCopy[language]}</small>}</div>
           <button className="icon-button" type="button" onClick={onClose} aria-label={text.close} title={text.close}><X size={19} /></button>
         </header>
 
@@ -266,6 +272,7 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
             <div>
               <strong>{deliveryMode === "dashboard" ? fallback.saved : text.subscribed}</strong>
               <span>{deliveryMode === "dashboard" ? fallback.savedDetail : text.privacy}</span>
+              {deliveryMode === "push" && <span className="subscription-cadence">{cadenceCopy[language]}</span>}
             </div>
             <button type="button" onClick={() => void unsubscribe()} disabled={working}>{deliveryMode === "dashboard" ? fallback.remove : text.unsubscribe}</button>
           </div>
