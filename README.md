@@ -64,4 +64,6 @@ Government endpoints can be delayed, unavailable, or revised. Confirm important 
 
 Four scheduled alert cycles run in approximate Thailand-time windows around 01:00, 07:00, 13:00, and 19:00. Each cycle evaluates government feeds and creates idempotent drafts. It also repeats the latest active, staff-approved warning for each affected district, at most once per subscriber per window. No all-clear message or unreviewed draft is pushed automatically.
 
+When a staff-approved ThaiWater warning matches a continuing level 4-5 government-feed flag, each scheduled cycle extends that warning for another 12 hours. Critical warnings require a continuing level 5 flag. Only the newest matching warning per district is renewed, and a warning that has been expired for more than 24 hours cannot be revived automatically. When the official flag clears, renewal stops and the warning expires naturally.
+
 The Vercel configuration uses four distinct once-daily cron paths because Hobby projects allow a given cron job to run only once per day. Cron execution can occur at any point within the configured hour.

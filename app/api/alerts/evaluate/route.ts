@@ -63,7 +63,18 @@ async function evaluate(request: Request) {
     if (await createAutomatedDraft(alert)) created.push(alert.id);
   }
 
-  return Response.json({ evaluatedAt: new Date().toISOString(), flaggedStations: stations.length, draftsCreated: created.length, draftIds: created });
+  return Response.json({
+    evaluatedAt: new Date().toISOString(),
+    flaggedStations: stations.length,
+    activeFlags: stations.map((station) => ({
+      stationCode: station.code,
+      district: districtMap[station.district],
+      situationLevel: station.situationLevel,
+      observedAt: station.observedAt,
+    })),
+    draftsCreated: created.length,
+    draftIds: created,
+  });
 }
 
 export function GET(request: Request) {

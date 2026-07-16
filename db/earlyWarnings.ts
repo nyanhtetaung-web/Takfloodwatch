@@ -99,6 +99,15 @@ export async function listPublishedAlerts(district?: AlertDistrict) {
   return rows.map(mapAlert);
 }
 
+export async function listPublishedAlertsForRenewal(hoursBack = 24) {
+  const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
+  const rows = await query(
+    "SELECT * FROM warning_alerts WHERE status = 'published' AND expires_at > ? ORDER BY published_at DESC LIMIT 100",
+    [cutoff],
+  );
+  return rows.map(mapAlert);
+}
+
 export async function listAlertsForAdmin() {
   return (await query("SELECT * FROM warning_alerts ORDER BY created_at DESC LIMIT 100")).map(mapAlert);
 }
@@ -153,6 +162,14 @@ export async function publishWarningAlert(id: string, publishedBy: string) {
 export async function expireWarningAlert(id: string) {
   await execute("UPDATE warning_alerts SET status = 'expired' WHERE id = ?", [id]);
   return getWarningAlert(id);
+}
+
+export async function renewWarningAlert(id: string, expiresAt: string) {
+  const result = await execute(
+    "UPDATE warning_alerts SET expires_at = ? WHERE id = ? AND status = 'published' AND expires_at < ? RETURNING id",
+    [expiresAt, id, expiresAt],
+  );
+  return result.rows.length > 0;
 }
 
 export async function upsertAlertSubscription(subscription: AlertSubscriptionRecord) {
