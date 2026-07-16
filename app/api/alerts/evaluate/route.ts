@@ -1,5 +1,6 @@
 import { createAutomatedDraft, type AlertDistrict, type AlertSeverity, type WarningAlertRecord } from "../../../../db/earlyWarnings";
 import { isAlertEvaluator } from "../../../lib/alertAuth";
+import { GET as getGovernmentData } from "../../government-data/route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,7 +28,7 @@ async function evaluate(request: Request) {
     return Response.json({ error: "Evaluator authorization is required." }, { status: 401 });
   }
 
-  const response = await fetch(new URL("/api/government-data", request.url), { headers: { Accept: "application/json" } });
+  const response = await getGovernmentData();
   if (!response.ok) return Response.json({ error: "Government feeds could not be evaluated." }, { status: 503 });
   const data = await response.json() as { water?: { stations?: WaterStation[]; sourceUrl?: string } | null };
   const stations = (data.water?.stations ?? []).filter((station) => station.situationLevel >= 4 && districtMap[station.district]);
