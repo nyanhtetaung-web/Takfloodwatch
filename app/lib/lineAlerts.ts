@@ -2,7 +2,6 @@ import {
   claimAlertDeliveryWindow,
   listLineSubscriptionsForAlert,
   recordAlertDelivery,
-  type AlertLanguage,
   type LineAlertSubscriptionRecord,
   type WarningAlertRecord,
 } from "../../db/earlyWarnings";
@@ -14,12 +13,6 @@ class LineApiError extends Error {
     super(message);
     this.statusCode = statusCode;
   }
-}
-
-function localizedAlert(alert: WarningAlertRecord, language: AlertLanguage) {
-  if (language === "my") return { title: alert.titleMy, body: alert.bodyMy };
-  if (language === "th") return { title: alert.titleTh, body: alert.bodyTh };
-  return { title: alert.titleEn, body: alert.bodyEn };
 }
 
 function dashboardUrl(alertId?: string) {
@@ -64,19 +57,15 @@ export async function sendLinePushText(userId: string, text: string) {
   });
 }
 
-function warningMessage(alert: WarningAlertRecord, language: AlertLanguage) {
-  const message = localizedAlert(alert, language);
-  const labels = language === "my"
-    ? { area: "ဧရိယာ", source: "အရင်းအမြစ်", details: "အသေးစိတ်" }
-    : language === "th"
-      ? { area: "พื้นที่", source: "แหล่งข้อมูล", details: "รายละเอียด" }
-      : { area: "Area", source: "Source", details: "Details" };
+function warningMessage(alert: WarningAlertRecord) {
   return [
-    message.title,
-    message.body,
-    `${labels.area}: ${alert.district}`,
-    `${labels.source}: ${alert.sourceName}`,
-    `${labels.details}: ${dashboardUrl(alert.id)}`,
+    "FLOODWATCH TAK - EARLY WARNING",
+    `ENGLISH\n${alert.titleEn}\n${alert.bodyEn}`,
+    `မြန်မာ\n${alert.titleMy}\n${alert.bodyMy}`,
+    `ไทย\n${alert.titleTh}\n${alert.bodyTh}`,
+    `Area / ဧရိယာ / พื้นที่: ${alert.district}`,
+    `Source / အရင်းအမြစ် / แหล่งข้อมูล: ${alert.sourceName}`,
+    `Details / အသေးစိတ် / รายละเอียด: ${dashboardUrl(alert.id)}`,
   ].join("\n\n");
 }
 
@@ -103,7 +92,7 @@ export async function deliverLineWarningAlert(
       }
       attempted += 1;
       try {
-        await sendLinePushText(subscription.userId, warningMessage(alert, subscription.language));
+        await sendLinePushText(subscription.userId, warningMessage(alert));
         sent += 1;
         await recordAlertDelivery({
           alertId: alert.id,
