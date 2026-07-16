@@ -7,7 +7,7 @@ import {
   type WarningAlertRecord,
 } from "../../../../../db/earlyWarnings";
 import { isAlertEvaluator } from "../../../../lib/alertAuth";
-import { deliverWarningAlert } from "../../../../lib/pushAlerts";
+import { deliverWarningAcrossChannels } from "../../../../lib/alertDelivery";
 import { GET as evaluateGovernmentFeeds } from "../../evaluate/route";
 
 export const dynamic = "force-dynamic";
@@ -87,8 +87,10 @@ export async function GET(request: Request, context: { params: Promise<{ slot: s
     alertId: alert.id,
     district: alert.district,
     severity: alert.severity,
-    delivery: await deliverWarningAlert(alert, { windowKey }),
+    delivery: await deliverWarningAcrossChannels(alert, { windowKey }),
   })));
+
+  console.info("[scheduled-alerts]", JSON.stringify({ slot, windowKey, reminders }));
 
   return Response.json({
     scheduledAt: new Date().toISOString(),

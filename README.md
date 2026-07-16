@@ -1,6 +1,6 @@
 # FloodWatch Tak
 
-FloodWatch Tak is a trilingual flood operations dashboard for Mae Sot, Umphang, Tha Song Yang, Mae Ramat, and Phop Phra. It includes government weather and water feeds, an interactive satellite map, help and damage-report forms, and opt-in browser warnings.
+FloodWatch Tak is a trilingual flood operations dashboard for Mae Sot, Umphang, Tha Song Yang, Mae Ramat, and Phop Phra. It includes government weather and water feeds, an interactive satellite map, help and damage-report forms, and opt-in browser and LINE warnings.
 
 ## Runtime
 
@@ -20,6 +20,10 @@ Set these in Vercel Project Settings for Production, Preview, and Development as
 - `VAPID_SUBJECT`: the deployed HTTPS URL or a `mailto:` contact
 - `ALERT_ADMIN_TOKEN`: a long private token for `/alerts-admin`
 - `CRON_SECRET`: a separate token for Vercel Cron
+- `LINE_CHANNEL_SECRET`: the Messaging API channel secret from LINE Developers
+- `LINE_CHANNEL_ACCESS_TOKEN`: a long-lived Messaging API channel access token
+- `LINE_ADD_FRIEND_URL`: the public add-friend link for the Tak FloodWatch Official Account
+- `NEXT_PUBLIC_SITE_URL`: the canonical deployed dashboard URL, such as `https://takfloodwatch.vercel.app`
 - `TMD_NWP_API_TOKEN` (optional): a personal TMD Weather Forecast API OAuth token. When set, the five district point forecasts use official TMD NWP data. Without it, live multi-model point guidance is shown with the official TMD Tak forecast retained as the province reference.
 
 Never commit real tokens or `.env` files. The application creates its SQLite-compatible tables and indexes when the database is first accessed. `database-schema.sql` is included for review or manual initialization.
@@ -55,6 +59,16 @@ A missing or unreachable Turso database returns HTTP 503 with `database: "discon
 4. Deploy and verify `/api/health`.
 
 Every push to the production branch triggers a new production deployment. Vercel also creates preview deployments for other branches and pull requests.
+
+## LINE Messaging API
+
+1. Create a LINE Official Account and enable Messaging API.
+2. Add the four LINE variables above to the Vercel Production environment and redeploy.
+3. In LINE Developers, set the webhook URL to `https://takfloodwatch.vercel.app/api/channels/line/webhook`.
+4. Enable **Use webhook**, select **Verify**, and confirm the endpoint succeeds.
+5. Add the Official Account from the dashboard and send `EN`, `MY`, or `TH` to select a language. Send `ALL`, `MAE SOT`, `UMPHANG`, `THA SONG YANG`, `MAE RAMAT`, or `PHOP PHRA` to select an area. Send `STOP` to unsubscribe.
+
+The webhook rejects requests without a valid LINE signature. Adding the Official Account enables alerts for all five districts in English and immediately sends the current active warning, if one exists. Scheduled warnings are deduplicated independently for Web Push and LINE.
 
 ## Operational notes
 

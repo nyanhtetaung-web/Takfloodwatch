@@ -39,6 +39,14 @@ export type AlertSubscriptionRecord = {
   language: AlertLanguage;
 };
 
+export type LineAlertSubscriptionRecord = {
+  id: string;
+  userId: string;
+  district: AlertDistrict;
+  language: AlertLanguage;
+  active: boolean;
+};
+
 type SqlArgument = string | number | null;
 type DatabaseRow = Record<string, unknown>;
 
@@ -223,6 +231,75 @@ export async function listSubscriptionsForAlert(district: AlertDistrict): Promis
     district: text(row.district) as AlertDistrict,
     language: text(row.language) as AlertLanguage,
   }));
+}
+
+function mapLineSubscription(row: DatabaseRow): LineAlertSubscriptionRecord {
+  return {
+    id: text(row.id),
+    userId: text(row.user_id),
+    district: text(row.district) as AlertDistrict,
+    language: text(row.language) as AlertLanguage,
+    active: Boolean(row.active),
+  };
+}
+
+export async function getLineAlertSubscription(userId: string) {
+  const rows = await query(
+    "SELECT id, user_id, district, language, active FROM line_alert_subscriptions WHERE user_id = ? LIMIT 1",
+    [userId],
+  );
+  return rows[0] ? mapLineSubscription(rows[0]) : null;
+}
+
+export async function upsertLineAlertSubscription(userId: string) {
+  const now = new Date().toISOString();
+  const result = await execute(
+    `INSERT INTO line_alert_subscriptions (
+      id, user_id, district, language, active, consented_at, updated_at, last_error
+    ) VALUES (?, ?, 'All districts', 'en', 1, ?, ?, NULL)
+    ON CONFLICT (user_id) DO UPDATE SET
+      active = 1,
+      updated_at = excluded.updated_at,
+      last_error = NULL
+    RETURNING id, user_id, district, language, active`,
+    [crypto.randomUUID(), userId, now, now],
+  );
+  return mapLineSubscription(result.rows[0] as unknown as DatabaseRow);
+}
+
+export async function updateLineAlertSubscription(
+  userId: string,
+  input: { district?: AlertDistrict; language?: AlertLanguage; active?: boolean },
+) {
+  const existing = await upsertLineAlertSubscription(userId);
+  const district = input.district ?? existing.district;
+  const language = input.language ?? existing.language;
+  const active = input.active ?? existing.active;
+  const rows = await query(
+    `UPDATE line_alert_subscriptions
+     SET district = ?, language = ?, active = ?, updated_at = ?, last_error = NULL
+     WHERE user_id = ?
+     RETURNING id, user_id, district, language, active`,
+    [district, language, active ? 1 : 0, new Date().toISOString(), userId],
+  );
+  return mapLineSubscription(rows[0]);
+}
+
+export async function deactivateLineAlertSubscription(userId: string, error: string | null = null) {
+  await execute(
+    "UPDATE line_alert_subscriptions SET active = 0, updated_at = ?, last_error = ? WHERE user_id = ?",
+    [new Date().toISOString(), error, userId],
+  );
+}
+
+export async function listLineSubscriptionsForAlert(district: AlertDistrict): Promise<LineAlertSubscriptionRecord[]> {
+  const rows = district === "All districts"
+    ? await query("SELECT id, user_id, district, language, active FROM line_alert_subscriptions WHERE active = 1 LIMIT 5000")
+    : await query(
+      "SELECT id, user_id, district, language, active FROM line_alert_subscriptions WHERE active = 1 AND (district = 'All districts' OR district = ?) LIMIT 5000",
+      [district],
+    );
+  return rows.map(mapLineSubscription);
 }
 
 export async function recordAlertDelivery(input: { alertId: string; subscriptionId: string; status: "sent" | "failed"; responseCode: number | null; error: string | null }) {

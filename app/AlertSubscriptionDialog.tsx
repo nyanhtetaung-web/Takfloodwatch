@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRing, CheckCircle2, MonitorCheck, Share2, ShieldCheck, X } from "lucide-react";
+import { BellRing, CheckCircle2, MessageCircle, MonitorCheck, Share2, ShieldCheck, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type Language = "en" | "my" | "th";
@@ -88,6 +88,24 @@ const mobileSetupCopy: Record<Language, string> = {
   th: "Android: เปิดเว็บไซต์นี้ใน Chrome และอนุญาตการแจ้งเตือน iPhone หรือ iPad: เพิ่ม FloodWatch ไปยังหน้าจอโฮม เปิดจากไอคอนนั้น แล้วสมัครรับคำเตือน",
 };
 
+const lineCopy: Record<Language, { title: string; detail: string; action: string }> = {
+  en: {
+    title: "Receive warnings in LINE",
+    detail: "Add the Tak FloodWatch Official Account. LINE alerts work even when this dashboard is closed or opened inside an in-app browser.",
+    action: "Subscribe with LINE",
+  },
+  my: {
+    title: "LINE တွင် သတိပေးချက်များ ရယူပါ",
+    detail: "Tak FloodWatch Official Account ကို မိတ်ဆွေအဖြစ်ထည့်ပါ။ Dashboard ပိတ်ထားသည့်အခါ သို့မဟုတ် in-app browser ဖြင့် ဖွင့်ထားသည့်အခါတွင်လည်း LINE မှ သတိပေးချက်များ ရရှိပါမည်။",
+    action: "LINE ဖြင့် စာရင်းသွင်းမည်",
+  },
+  th: {
+    title: "รับคำเตือนผ่าน LINE",
+    detail: "เพิ่มบัญชีทางการ Tak FloodWatch เพื่อรับคำเตือนผ่าน LINE แม้ปิดแดชบอร์ดหรือเปิดเว็บไซต์ในเบราว์เซอร์ภายในแอป",
+    action: "สมัครผ่าน LINE",
+  },
+};
+
 const fallbackCopy = {
   en: {
     title: "Background alerts are unavailable in this browser",
@@ -153,6 +171,7 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
   const [subscribed, setSubscribed] = useState(false);
   const [deliveryMode, setDeliveryMode] = useState<"push" | "dashboard" | null>(null);
   const [pushAvailable, setPushAvailable] = useState<boolean | null>(null);
+  const [lineChannel, setLineChannel] = useState({ enabled: false, addFriendUrl: "" });
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -169,16 +188,19 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
       setSubscribed(true);
       setDeliveryMode("dashboard");
     }
+    const configRequest = fetch("/api/alert-config", { cache: "no-store" })
+      .then((response) => response.json() as Promise<{ enabled?: boolean; channels?: { line?: { enabled?: boolean; addFriendUrl?: string } } }>);
+    void configRequest.then((config) => setLineChannel({
+      enabled: Boolean(config.channels?.line?.enabled && config.channels.line.addFriendUrl),
+      addFriendUrl: config.channels?.line?.addFriendUrl ?? "",
+    })).catch(() => undefined);
     if (!supportsPush) return;
     void Promise.all([
       navigator.serviceWorker.register("/sw.js"),
-      fetch("/api/alert-config", { cache: "no-store" }),
+      configRequest,
     ])
-      .then(async ([registration, configResponse]) => {
-        const [subscription, config] = await Promise.all([
-          registration.pushManager.getSubscription(),
-          configResponse.json() as Promise<{ enabled?: boolean }>,
-        ]);
+      .then(async ([registration, config]) => {
+        const subscription = await registration.pushManager.getSubscription();
         if (subscription) {
           setSubscribed(true);
           setDeliveryMode("push");
@@ -213,6 +235,11 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
     } catch {
       setMessage(fallback.shareFailed);
     }
+  }
+
+  function openLineSubscription() {
+    if (!lineChannel.enabled || !lineChannel.addFriendUrl) return;
+    window.open(lineChannel.addFriendUrl, "_blank", "noopener,noreferrer");
   }
 
   async function subscribe() {
@@ -308,6 +335,9 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
               {deliveryMode === "push" && <span className="subscription-cadence">{cadenceCopy[language]}</span>}
             </div>
             <button type="button" onClick={() => void unsubscribe()} disabled={working}>{deliveryMode === "dashboard" ? fallback.remove : text.unsubscribe}</button>
+            {lineChannel.enabled && deliveryMode === "dashboard" && (
+              <button className="line-subscribe-button" type="button" onClick={openLineSubscription}><MessageCircle size={16} /> {lineCopy[language].action}</button>
+            )}
           </div>
         ) : (
           <div className="subscription-form">
@@ -315,7 +345,14 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
               <div className="subscription-fallback" role="note">
                 <MonitorCheck size={21} />
                 <div><strong>{fallback.title}</strong><span>{fallback.detail}</span><span className="subscription-mobile-note">{mobileSetupCopy[language]}</span></div>
-                <button type="button" onClick={() => void shareWebsite()}><Share2 size={15} /> {fallback.share}</button>
+                <div className="subscription-fallback-actions"><button type="button" onClick={() => void shareWebsite()}><Share2 size={15} /> {fallback.share}</button></div>
+              </div>
+            )}
+            {lineChannel.enabled && (
+              <div className="subscription-line-option">
+                <MessageCircle size={21} />
+                <div><strong>{lineCopy[language].title}</strong><span>{lineCopy[language].detail}</span></div>
+                <button className="line-subscribe-button" type="button" onClick={openLineSubscription}>{lineCopy[language].action}</button>
               </div>
             )}
             <label><span>{text.district}</span><select value={district} onChange={(event) => setDistrict(event.target.value as (typeof districts)[number])}>{districts.map((item) => <option key={item} value={item}>{districtLabels[language][item]}</option>)}</select></label>

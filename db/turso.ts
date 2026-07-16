@@ -95,6 +95,17 @@ const schemaStatements = [
     last_error TEXT
   )`,
   "CREATE INDEX IF NOT EXISTS alert_subscriptions_active_district_idx ON alert_subscriptions (active, district)",
+  `CREATE TABLE IF NOT EXISTS line_alert_subscriptions (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL UNIQUE,
+    district TEXT NOT NULL,
+    language TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    consented_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_error TEXT
+  )`,
+  "CREATE INDEX IF NOT EXISTS line_alert_subscriptions_active_district_idx ON line_alert_subscriptions (active, district)",
   `CREATE TABLE IF NOT EXISTS alert_deliveries (
     id TEXT PRIMARY KEY NOT NULL,
     alert_id TEXT NOT NULL,

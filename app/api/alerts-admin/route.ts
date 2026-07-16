@@ -10,7 +10,7 @@ import {
   type WarningAlertRecord,
 } from "../../../db/earlyWarnings";
 import { isAlertAdmin } from "../../lib/alertAuth";
-import { deliverWarningAlert } from "../../lib/pushAlerts";
+import { deliverWarningAcrossChannels } from "../../lib/alertDelivery";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   await createWarningAlert(record);
   if (body.publish === true) {
     const published = await publishWarningAlert(record.id, "authorized staff");
-    const delivery = published ? await deliverWarningAlert(published) : null;
+    const delivery = published ? await deliverWarningAcrossChannels(published) : null;
     return Response.json({ alert: published, delivery }, { status: 201 });
   }
   return Response.json({ alert: record }, { status: 201 });
@@ -116,6 +116,6 @@ export async function PATCH(request: Request) {
 
   const alert = await publishWarningAlert(id, "authorized staff");
   if (!alert || alert.status !== "published") return Response.json({ error: "Draft alert was not found." }, { status: 404 });
-  const delivery = await deliverWarningAlert(alert);
+  const delivery = await deliverWarningAcrossChannels(alert);
   return Response.json({ alert, delivery });
 }
