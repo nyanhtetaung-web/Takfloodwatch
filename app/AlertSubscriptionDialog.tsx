@@ -76,6 +76,18 @@ const backgroundReadyCopy: Record<Language, string> = {
   th: "ขณะนี้การแจ้งเตือนเบื้องหลังพร้อมใช้งานแล้ว โปรดสมัครอีกครั้งด้านล่างเพื่อรับคำเตือนเมื่อปิดแดชบอร์ด",
 };
 
+const currentWarningSentCopy: Record<Language, string> = {
+  en: "Subscribed. The current active warning was sent to this device.",
+  my: "စာရင်းသွင်းပြီးပါပြီ။ လက်ရှိအသက်ဝင်နေသော သတိပေးချက်ကို ဤစက်သို့ ပို့ပြီးပါပြီ။",
+  th: "สมัครเรียบร้อยแล้ว ระบบส่งคำเตือนที่กำลังมีผลไปยังอุปกรณ์นี้แล้ว",
+};
+
+const mobileSetupCopy: Record<Language, string> = {
+  en: "Android: open this site in Chrome and allow notifications. iPhone or iPad: add FloodWatch to the Home Screen, open it there, then subscribe.",
+  my: "Android တွင် Chrome ဖြင့်ဖွင့်ပြီး အသိပေးချက်များကို ခွင့်ပြုပါ။ iPhone သို့မဟုတ် iPad တွင် FloodWatch ကို Home Screen သို့ထည့်၊ ထိုနေရာမှဖွင့်ပြီး စာရင်းသွင်းပါ။",
+  th: "Android: เปิดเว็บไซต์นี้ใน Chrome และอนุญาตการแจ้งเตือน iPhone หรือ iPad: เพิ่ม FloodWatch ไปยังหน้าจอโฮม เปิดจากไอคอนนั้น แล้วสมัครรับคำเตือน",
+};
+
 const fallbackCopy = {
   en: {
     title: "Background alerts are unavailable in this browser",
@@ -231,13 +243,15 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
         body: JSON.stringify({ subscription: subscription.toJSON(), district, language: messageLanguage, consent }),
       });
       if (!response.ok) throw new Error("Subscription save failed");
+      const result = await response.json() as { catchUp?: { sent?: number; failed?: number } };
+      if ((result.catchUp?.failed ?? 0) > 0 && (result.catchUp?.sent ?? 0) === 0) throw new Error("Initial push delivery failed");
       window.localStorage.setItem("floodwatch-alert-district", district);
       window.localStorage.setItem("floodwatch-alert-language", messageLanguage);
       window.localStorage.setItem("floodwatch-alert-mode", "push");
       window.dispatchEvent(new Event("floodwatch-alert-preferences"));
       setSubscribed(true);
       setDeliveryMode("push");
-      setMessage(text.subscribed);
+      setMessage((result.catchUp?.sent ?? 0) > 0 ? currentWarningSentCopy[language] : text.subscribed);
     } catch {
       setMessage(text.failed);
     } finally {
@@ -300,7 +314,7 @@ export default function AlertSubscriptionDialog({ language, open, onClose }: { l
             {pushAvailable === false && (
               <div className="subscription-fallback" role="note">
                 <MonitorCheck size={21} />
-                <div><strong>{fallback.title}</strong><span>{fallback.detail}</span></div>
+                <div><strong>{fallback.title}</strong><span>{fallback.detail}</span><span className="subscription-mobile-note">{mobileSetupCopy[language]}</span></div>
                 <button type="button" onClick={() => void shareWebsite()}><Share2 size={15} /> {fallback.share}</button>
               </div>
             )}

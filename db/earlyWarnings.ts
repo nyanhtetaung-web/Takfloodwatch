@@ -174,7 +174,7 @@ export async function renewWarningAlert(id: string, expiresAt: string) {
 
 export async function upsertAlertSubscription(subscription: AlertSubscriptionRecord) {
   const now = new Date().toISOString();
-  await execute(
+  const result = await execute(
     `INSERT INTO alert_subscriptions (
       id, endpoint, p256dh, auth, district, language, active, consented_at, updated_at, last_error
     ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, NULL)
@@ -185,9 +185,20 @@ export async function upsertAlertSubscription(subscription: AlertSubscriptionRec
       language = excluded.language,
       active = 1,
       updated_at = excluded.updated_at,
-      last_error = NULL`,
+      last_error = NULL
+    RETURNING id, endpoint, p256dh, auth, district, language`,
     [subscription.id, subscription.endpoint, subscription.p256dh, subscription.auth, subscription.district, subscription.language, now, now],
   );
+  const row = result.rows[0] as unknown as DatabaseRow | undefined;
+  if (!row) return subscription;
+  return {
+    id: text(row.id),
+    endpoint: text(row.endpoint),
+    p256dh: text(row.p256dh),
+    auth: text(row.auth),
+    district: text(row.district) as AlertDistrict,
+    language: text(row.language) as AlertLanguage,
+  };
 }
 
 export async function deactivateAlertSubscription(endpoint: string, error: string | null = null) {

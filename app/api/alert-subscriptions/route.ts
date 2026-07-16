@@ -2,10 +2,12 @@ import {
   alertDistricts,
   alertLanguages,
   deactivateAlertSubscription,
+  listPublishedAlerts,
   upsertAlertSubscription,
   type AlertDistrict,
   type AlertLanguage,
 } from "../../../db/earlyWarnings";
+import { deliverWarningAlert } from "../../lib/pushAlerts";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +48,23 @@ export async function POST(request: Request) {
     return Response.json({ error: "Push encryption keys are missing." }, { status: 400 });
   }
 
-  await upsertAlertSubscription({ id: crypto.randomUUID(), endpoint, p256dh, auth, district, language });
-  return Response.json({ subscribed: true, district, language }, { status: 201, headers: { "Cache-Control": "no-store" } });
+  const savedSubscription = await upsertAlertSubscription({ id: crypto.randomUUID(), endpoint, p256dh, auth, district, language });
+  const activeAlerts = await listPublishedAlerts(district);
+  const latestByDistrict = new Map<string, (typeof activeAlerts)[number]>();
+  for (const alert of activeAlerts) {
+    if (!latestByDistrict.has(alert.district)) latestByDistrict.set(alert.district, alert);
+  }
+  const deliveries = await Promise.all(Array.from(latestByDistrict.values(), (alert) => deliverWarningAlert(alert, {
+    subscriptions: [savedSubscription],
+  })));
+  const catchUp = deliveries.reduce((summary, delivery) => ({
+    alerts: summary.alerts + 1,
+    sent: summary.sent + delivery.sent,
+    failed: summary.failed + delivery.failed,
+    skipped: summary.skipped + delivery.skipped,
+  }), { alerts: 0, sent: 0, failed: 0, skipped: 0 });
+
+  return Response.json({ subscribed: true, district, language, catchUp }, { status: 201, headers: { "Cache-Control": "no-store" } });
 }
 
 export async function DELETE(request: Request) {

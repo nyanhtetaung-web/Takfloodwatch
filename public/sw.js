@@ -8,8 +8,8 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(self.registration.showNotification(data.title || "FloodWatch warning", {
     body: data.body || "Open the dashboard for the latest warning.",
-    icon: "/hwf-site-logo.png",
-    badge: "/favicon.svg",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
     tag: data.district ? `floodwatch-${data.district}` : "floodwatch-warning",
     renotify: true,
     requireInteraction: data.severity === "critical",

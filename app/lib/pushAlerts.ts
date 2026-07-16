@@ -5,6 +5,7 @@ import {
   listSubscriptionsForAlert,
   recordAlertDelivery,
   type AlertLanguage,
+  type AlertSubscriptionRecord,
   type WarningAlertRecord,
 } from "../../db/earlyWarnings";
 
@@ -14,17 +15,18 @@ function localizedAlert(alert: WarningAlertRecord, language: AlertLanguage) {
   return { title: alert.titleEn, body: alert.bodyEn };
 }
 
-export async function deliverWarningAlert(alert: WarningAlertRecord, options: { windowKey?: string } = {}) {
+export async function deliverWarningAlert(alert: WarningAlertRecord, options: { windowKey?: string; subscriptions?: AlertSubscriptionRecord[] } = {}) {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   const subject = process.env.VAPID_SUBJECT;
-  const subscriptions = await listSubscriptionsForAlert(alert.district);
+  const subscriptions = options.subscriptions ?? await listSubscriptionsForAlert(alert.district);
 
   if (!publicKey || !privateKey || !subject) {
     return { configured: false, recipients: subscriptions.length, attempted: 0, sent: 0, failed: 0, skipped: 0 };
   }
 
   webPush.setVapidDetails(subject, publicKey, privateKey);
+  const ttlSeconds = Math.max(900, Math.min(86_400, Math.ceil((Date.parse(alert.expiresAt) - Date.now()) / 1000)));
   let sent = 0;
   let failed = 0;
   let attempted = 0;
@@ -51,7 +53,7 @@ export async function deliverWarningAlert(alert: WarningAlertRecord, options: { 
         const response = await webPush.sendNotification({
           endpoint: subscription.endpoint,
           keys: { p256dh: subscription.p256dh, auth: subscription.auth },
-        }, payload, { TTL: 900, urgency: alert.severity === "critical" ? "high" : "normal" });
+        }, payload, { TTL: ttlSeconds, urgency: alert.severity === "critical" ? "high" : "normal" });
         sent += 1;
         await recordAlertDelivery({ alertId: alert.id, subscriptionId: subscription.id, status: "sent", responseCode: response.statusCode ?? null, error: null });
       } catch (caught) {

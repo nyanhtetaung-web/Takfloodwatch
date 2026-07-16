@@ -689,6 +689,12 @@ html[lang="th"] .mobile-nav a {
   line-height: 1.5;
 }
 
+.subscription-fallback .subscription-mobile-note {
+  color: #315f53;
+  font-weight: 700;
+  margin-top: 3px;
+}
+
 .subscription-fallback button {
   align-items: center;
   background: white;
