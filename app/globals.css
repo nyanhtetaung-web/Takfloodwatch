@@ -2684,9 +2684,23 @@ html[lang="th"] .mobile-nav a {
 
 .river-chart {
   display: block;
-  height: 230px;
+  height: 290px;
   overflow: visible;
   width: 100%;
+}
+
+.river-plot-background {
+  fill: #ecf8f7;
+  stroke: #aab9ba;
+  stroke-width: 1;
+}
+
+.river-chart-title {
+  fill: #1e665f;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .bank-zone {
@@ -2694,7 +2708,8 @@ html[lang="th"] .mobile-nav a {
 }
 
 .chart-gridline {
-  stroke: #e5eaea;
+  stroke: #aebebe;
+  stroke-dasharray: 2 3;
   stroke-width: 1;
 }
 
@@ -2737,21 +2752,74 @@ html[lang="th"] .mobile-nav a {
   font-size: 8px;
 }
 
+.rainfall-unit,
+.rainfall-axis-value {
+  fill: #23704f;
+}
+
 .chart-unit {
   font-weight: 750;
 }
 
 .river-area {
-  fill: rgba(38, 126, 119, 0.12);
+  fill: rgba(40, 90, 155, 0.1);
 }
 
 .river-line {
+  fill: none;
   stroke-width: 4;
 }
 
-.river-line.rising { stroke: var(--red); }
-.river-line.falling { stroke: var(--teal); }
-.river-line.steady { stroke: #58747b; }
+.river-line.rising,
+.river-line.falling,
+.river-line.steady { stroke: #174f93; }
+
+.rainfall-bar {
+  shape-rendering: crispEdges;
+}
+
+.rainfall-24h {
+  fill: rgba(42, 139, 92, 0.58);
+  stroke: #1d6a45;
+  stroke-width: 1;
+}
+
+.rainfall-1h {
+  fill: rgba(18, 104, 68, 0.78);
+}
+
+.rainfall-value {
+  fill: #175f3e;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.river-chart-legend text {
+  fill: #4f6267;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.legend-observed-line {
+  stroke: #174f93;
+  stroke-width: 3;
+}
+
+.legend-observed-point {
+  fill: white;
+  stroke: #174f93;
+  stroke-width: 2;
+}
+
+.legend-bank-line {
+  stroke: #bd302c;
+  stroke-dasharray: 6 4;
+  stroke-width: 2;
+}
 
 .river-point {
   fill: white;
@@ -4583,7 +4651,7 @@ html[lang="th"] .mobile-nav a {
   }
 
   .river-chart {
-    height: 205px;
+    height: 240px;
   }
 
   .bank-label {
