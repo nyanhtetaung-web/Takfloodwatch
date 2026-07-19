@@ -422,16 +422,25 @@ function rainChanceLabel(value: number | null, language: Language) {
   return `${Math.round(value)}%`;
 }
 
-function RiverLevelChart({ station, language, sourceUrl, tr }: { station: WaterStation; language: Language; sourceUrl: string; tr: (text: string) => string }) {
+function RiverLevelChart({ station, rainfallStations, language, sourceUrl, tr }: { station: WaterStation; rainfallStations: RainStation[]; language: Language; sourceUrl: string; tr: (text: string) => string }) {
   const bankLevel = station.levelMsl + station.bankDistanceM;
+  const distanceFromStation = (rainfall: RainStation) =>
+    Math.hypot(rainfall.latitude - station.latitude, rainfall.longitude - station.longitude);
+  const rainfall = rainfallStations
+    .filter((item) => item.district === station.district)
+    .sort((a, b) => distanceFromStation(a) - distanceFromStation(b))[0] ?? null;
   const values = [station.previousLevelMsl, station.levelMsl, bankLevel];
   const minimum = Math.min(...values) - 0.25;
   const maximum = Math.max(...values) + 0.25;
   const range = Math.max(maximum - minimum, 0.1);
-  const y = (value: number) => 184 - ((value - minimum) / range) * 136;
+  const plot = { left: 78, right: 562, top: 50, bottom: 204 };
+  const plotHeight = plot.bottom - plot.top;
+  const y = (value: number) => plot.bottom - ((value - minimum) / range) * plotHeight;
   const previousY = y(station.previousLevelMsl);
   const currentY = y(station.levelMsl);
   const bankY = y(bankLevel);
+  const previousX = 158;
+  const currentX = 486;
   const change = station.levelMsl - station.previousLevelMsl;
   const trendTone = Math.abs(change) < 0.005 ? "steady" : change > 0 ? "rising" : "falling";
   const TrendIcon = trendTone === "rising" ? TrendingUp : trendTone === "falling" ? TrendingDown : Minus;
@@ -442,6 +451,10 @@ function RiverLevelChart({ station, language, sourceUrl, tr }: { station: WaterS
   const bankTone = station.bankDistanceM < 0 ? "above" : station.bankDistanceM <= 1 ? "near" : "below";
   const riskTone = station.situationLevel >= 5 ? "critical" : station.situationLevel >= 4 ? "warning" : station.situationLevel >= 3 ? "watch" : "normal";
   const ticks = Array.from({ length: 5 }, (_, index) => maximum - (range * index) / 4);
+  const rainMaximum = Math.max(10, Math.ceil((rainfall?.rainfall24hMm ?? 0) / 10) * 10);
+  const rainTicks = Array.from({ length: 5 }, (_, index) => (rainMaximum * index) / 4);
+  const rainfall24hHeight = Math.min(plotHeight, ((rainfall?.rainfall24hMm ?? 0) / rainMaximum) * plotHeight);
+  const rainfall1hHeight = Math.min(plotHeight, ((rainfall?.rainfall1hMm ?? 0) / rainMaximum) * plotHeight);
 
   return (
     <div className="river-chart-wrap">
@@ -460,24 +473,45 @@ function RiverLevelChart({ station, language, sourceUrl, tr }: { station: WaterS
         <span><small>{tr("Reported bank level")}</small><strong>{bankLevel.toFixed(2)} m</strong><em>MSL</em></span>
       </div>
 
-      <svg className="river-chart" viewBox="0 0 620 230" role="img" aria-label={`${tr("River level chart")}: ${station.name}`}>
-        <rect className="bank-zone" x="70" y="48" width="500" height={Math.max(0, bankY - 48)} />
-        <text className="chart-unit" x="56" y="30" textAnchor="end">m MSL</text>
+      <svg className="river-chart" viewBox="0 0 640 290" role="img" aria-label={`${tr("River level chart")}: ${station.name}`}>
+        <text className="river-chart-title" x="320" y="22" textAnchor="middle">{localized(language, "Water level and rainfall", "မြစ်ရေအဆင့်နှင့် မိုးရေချိန်", "ระดับน้ำและปริมาณฝน")}</text>
+        <rect className="river-plot-background" x={plot.left} y={plot.top} width={plot.right - plot.left} height={plotHeight} />
+        <rect className="bank-zone" x={plot.left} y={plot.top} width={plot.right - plot.left} height={Math.max(0, bankY - plot.top)} />
+        <text className="chart-unit" x="61" y="41" textAnchor="end">m MSL</text>
+        <text className="chart-unit rainfall-unit" x="578" y="41">mm</text>
         {ticks.map((tick) => {
           const tickY = y(tick);
-          return <g key={tick.toFixed(4)}><line className="chart-gridline" x1="70" x2="570" y1={tickY} y2={tickY} /><text className="chart-axis-value" x="57" y={tickY + 3} textAnchor="end">{tick.toFixed(2)}</text></g>;
+          return <g key={tick.toFixed(4)}><line className="chart-gridline" x1={plot.left} x2={plot.right} y1={tickY} y2={tickY} /><text className="chart-axis-value" x="66" y={tickY + 3} textAnchor="end">{tick.toFixed(2)}</text></g>;
         })}
-        <line className="bank-line" x1="70" x2="570" y1={bankY} y2={bankY} />
-        <text className="bank-label" x="564" y={Math.max(18, bankY - 8)} textAnchor="end">{tr("Reported bank level")} {bankLevel.toFixed(2)} m</text>
-        <path className="river-area" d={`M 116 ${previousY} L 524 ${currentY} L 524 184 L 116 184 Z`} />
-        <line className={`river-line ${trendTone}`} x1="116" x2="524" y1={previousY} y2={currentY} />
-        <circle className="river-point previous" cx="116" cy={previousY} r="7" />
-        <circle className={`river-point-halo ${trendTone}`} cx="524" cy={currentY} r="14" />
-        <circle className={`river-point current ${trendTone}`} cx="524" cy={currentY} r="8" />
-        <text className="point-value" x="116" y={Math.max(20, previousY - 14)} textAnchor="middle">{station.previousLevelMsl.toFixed(2)} m</text>
-        <text className="point-value" x="524" y={Math.max(20, currentY - 14)} textAnchor="middle">{station.levelMsl.toFixed(2)} m</text>
-        <text className="axis-label" x="116" y="216" textAnchor="middle">{tr("Previous")}</text>
-        <text className="axis-label" x="524" y="216" textAnchor="middle">{tr("Current")}</text>
+        {rainTicks.map((tick, index) => {
+          const tickY = plot.top + (plotHeight * index) / 4;
+          return <text className="chart-axis-value rainfall-axis-value" key={tick} x="574" y={tickY + 3}>{tick.toFixed(0)}</text>;
+        })}
+        {rainfall && <>
+          <rect className="rainfall-bar rainfall-24h" x={currentX - 48} y={plot.top} width="72" height={rainfall24hHeight} />
+          <rect className="rainfall-bar rainfall-1h" x={currentX - 10} y={plot.top} width="26" height={rainfall1hHeight} />
+          <text className="rainfall-value" x={currentX - 12} y={Math.min(plot.bottom - 5, plot.top + rainfall24hHeight + 12)} textAnchor="middle">{rainfall.rainfall24hMm.toFixed(1)} mm</text>
+        </>}
+        <line className="bank-line" x1={plot.left} x2={plot.right} y1={bankY} y2={bankY} />
+        <text className="bank-label" x={plot.right - 6} y={Math.max(43, bankY - 8)} textAnchor="end">{tr("Reported bank level")} {bankLevel.toFixed(2)} m</text>
+        <path className="river-area" d={`M ${previousX} ${previousY} L ${currentX} ${currentY} L ${currentX} ${plot.bottom} L ${previousX} ${plot.bottom} Z`} />
+        <line className={`river-line ${trendTone}`} x1={previousX} x2={currentX} y1={previousY} y2={currentY} />
+        <circle className="river-point previous" cx={previousX} cy={previousY} r="7" />
+        <circle className={`river-point-halo ${trendTone}`} cx={currentX} cy={currentY} r="14" />
+        <circle className={`river-point current ${trendTone}`} cx={currentX} cy={currentY} r="8" />
+        <text className="point-value" x={previousX} y={Math.max(43, previousY - 14)} textAnchor="middle">{station.previousLevelMsl.toFixed(2)} m</text>
+        <text className="point-value" x={currentX} y={Math.max(43, currentY - 14)} textAnchor="middle">{station.levelMsl.toFixed(2)} m</text>
+        <text className="axis-label" x={previousX} y="224" textAnchor="middle">{tr("Previous")}</text>
+        <text className="axis-label" x={currentX} y="224" textAnchor="middle">{tr("Current")}</text>
+        <g className="river-chart-legend">
+          <rect className="rainfall-bar rainfall-24h" x="92" y="252" width="24" height="8" />
+          <text x="122" y="260">{localized(language, "Rainfall 24h", "၂၄ နာရီ မိုးရေချိန်", "ฝน 24 ชม.")}</text>
+          <line className="legend-observed-line" x1="248" x2="278" y1="256" y2="256" />
+          <circle className="legend-observed-point" cx="263" cy="256" r="3" />
+          <text x="284" y="260">{localized(language, "Observed water", "တိုင်းတာထားသော ရေ", "ระดับน้ำตรวจวัด")}</text>
+          <line className="legend-bank-line" x1="438" x2="468" y1="256" y2="256" />
+          <text x="474" y="260">{localized(language, "Bank level", "ကမ်းပါးအဆင့်", "ระดับตลิ่ง")}</text>
+        </g>
       </svg>
 
       <div className="river-source-row">
@@ -485,7 +519,9 @@ function RiverLevelChart({ station, language, sourceUrl, tr }: { station: WaterS
         <span><Building2 size={14} /><small>{tr("Source agency")}</small><b>{station.agency}</b></span>
         <a href={sourceUrl} target="_blank" rel="noreferrer">{tr("Open ThaiWater")} <ExternalLink size={14} /></a>
       </div>
-      <p className="chart-footnote">{tr("Two source readings only")}</p>
+      <p className="chart-footnote">{rainfall
+        ? localized(language, `Observed line: current and previous ThaiWater readings. Rain bars: nearest ${rainfall.name} gauge, 1h and 24h totals. No water-level forecast series is published.`, `တိုင်းတာထားသောမျဉ်းသည် ThaiWater ၏ လက်ရှိနှင့် ယခင်ဖတ်ချက်နှစ်ခုဖြစ်သည်။ မိုးရေတိုင်များသည် အနီးဆုံး ${rainfall.name} စခန်း၏ ၁ နာရီနှင့် ၂၄ နာရီ စုစုပေါင်းဖြစ်သည်။ ရေအဆင့်ခန့်မှန်းမျဉ်း မထုတ်ပြန်ထားပါ။`, `เส้นระดับน้ำใช้ค่าปัจจุบันและค่าก่อนหน้าจาก ThaiWater แท่งฝนใช้ยอดรวม 1 และ 24 ชั่วโมงจากสถานี ${rainfall.name} ที่ใกล้ที่สุด ไม่มีชุดข้อมูลพยากรณ์ระดับน้ำ`)
+        : localized(language, "Observed line uses current and previous ThaiWater readings. No matching rainfall or water-level forecast series is available.", "တိုင်းတာထားသောမျဉ်းသည် ThaiWater ၏ လက်ရှိနှင့် ယခင်ဖတ်ချက်နှစ်ခုဖြစ်သည်။ ကိုက်ညီသော မိုးရေ သို့မဟုတ် ရေအဆင့်ခန့်မှန်းဒေတာ မရှိပါ။", "เส้นระดับน้ำใช้ค่าปัจจุบันและค่าก่อนหน้าจาก ThaiWater ไม่พบข้อมูลฝนหรือชุดพยากรณ์ระดับน้ำที่ตรงกัน")}</p>
     </div>
   );
 }
@@ -1088,7 +1124,7 @@ export default function Home() {
               </select>
             </label>
 
-            {selectedGauge && data?.water ? <RiverLevelChart station={selectedGauge} language={language} sourceUrl={data.water.sourceUrl} tr={tr} /> : <p className="empty-state">{tr("ThaiWater feed unavailable. No substitute values are shown.")}</p>}
+            {selectedGauge && data?.water ? <RiverLevelChart station={selectedGauge} rainfallStations={data.water.rainfallStations} language={language} sourceUrl={data.water.sourceUrl} tr={tr} /> : <p className="empty-state">{tr("ThaiWater feed unavailable. No substitute values are shown.")}</p>}
           </article>
         </section>
 
