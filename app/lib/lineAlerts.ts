@@ -5,7 +5,11 @@ import {
   type LineAlertSubscriptionRecord,
   type WarningAlertRecord,
 } from "../../db/earlyWarnings";
-import { fetchTakProvinceForecast, type TakProvinceForecast } from "./takProvinceForecast";
+import {
+  fetchTakDistrictForecasts,
+  type DistrictCondition,
+  type TakDistrictForecastResult,
+} from "./takDistrictForecasts";
 
 class LineApiError extends Error {
   statusCode: number;
@@ -67,36 +71,55 @@ function dateInBangkok() {
   }).format(new Date());
 }
 
-function forecastLines(forecast: TakProvinceForecast | null) {
-  if (!forecast) {
-    return [
-      "Tak forecast: temporarily unavailable; check the dashboard.",
-      "တက်ခ်ပြည်နယ် မိုးလေဝသခန့်မှန်းချက်ကို ယာယီမရနိုင်ပါ။ Dashboard တွင် စစ်ဆေးပါ။",
-      "พยากรณ์จังหวัดตากไม่พร้อมใช้งานชั่วคราว โปรดตรวจสอบที่แดชบอร์ด",
-    ];
-  }
+const districtNames: Record<string, string> = {
+  "Mae Sot District": "Mae Sot / မဲဆောက် / แม่สอด",
+  "Umphang District": "Umphang / အုန်းဖန် / อุ้มผาง",
+  "Tha Song Yang District": "Tha Song Yang / သာဆောင်ယန်း / ท่าสองยาง",
+  "Mae Ramat District": "Mae Ramat / မယ်ရမတ် / แม่ระมาด",
+  "Phop Phra District": "Phop Phra / ဖုတ်ဖရ / พบพระ",
+};
+
+const conditionNames: Record<DistrictCondition, string> = {
+  clear: "Clear / ကြည်လင် / ท้องฟ้าแจ่มใส",
+  "partly-cloudy": "Partly cloudy / တိမ်အနည်းငယ် / มีเมฆบางส่วน",
+  cloudy: "Cloudy / တိမ်ထူ / มีเมฆ",
+  overcast: "Overcast / တိမ်အုံ့ / เมฆมาก",
+  fog: "Fog / မြူ / หมอก",
+  "light-rain": "Light rain / မိုးဖွဲ / ฝนเล็กน้อย",
+  "moderate-rain": "Moderate rain / မိုးအသင့်အတင့် / ฝนปานกลาง",
+  "heavy-rain": "Heavy rain / မိုးသည်းထန် / ฝนตกหนัก",
+  thunderstorm: "Thunderstorm / မိုးကြိုးမုန်တိုင်း / พายุฝนฟ้าคะนอง",
+  unknown: "Forecast unavailable / ခန့်မှန်းချက်မရ / ไม่มีข้อมูลพยากรณ์",
+};
+
+function districtForecastLines(result: TakDistrictForecastResult | null) {
+  if (!result) return [
+    "Five-district forecast temporarily unavailable; check the dashboard.",
+    "ခရိုင်ငါးခု မိုးလေဝသခန့်မှန်းချက်ကို ယာယီမရနိုင်ပါ။ Dashboard တွင် စစ်ဆေးပါ။",
+    "พยากรณ์ทั้งห้าอำเภอไม่พร้อมใช้งานชั่วคราว โปรดตรวจสอบที่แดชบอร์ด",
+  ];
 
   const today = dateInBangkok();
-  const day = forecast.days.find((item) => item.date >= today) ?? forecast.days[0];
-  if (!day) return [];
-  const temperature = `${day.minimumTemperatureC}-${day.maximumTemperatureC} C`;
-  return [
-    `Tak forecast (${day.date}): ${day.descriptionEn}; rain ${day.rainChancePercent}%; ${temperature}.`,
-    `တက်ခ်ပြည်နယ် မိုးလေဝသ (${day.date}) - မိုးရွာနိုင်ခြေ ${day.rainChancePercent}%၊ အပူချိန် ${temperature}။`,
-    `พยากรณ์จังหวัดตาก (${day.date}): ${day.descriptionTh || day.descriptionEn}; ฝน ${day.rainChancePercent}%; อุณหภูมิ ${temperature}`,
-  ];
+  return result.forecasts.map((forecast) => {
+    const day = forecast.days.find((item) => item.date >= today) ?? forecast.days[0];
+    if (!day) return `${districtNames[forecast.district] ?? forecast.district}: unavailable`;
+    const rain = day.rainChancePercent == null
+      ? `${day.precipitationMm.toFixed(1)} mm`
+      : `${day.rainChancePercent}% / ${day.precipitationMm.toFixed(1)} mm`;
+    return `${districtNames[forecast.district] ?? forecast.district}: ${conditionNames[day.condition]} | Rain/မိုး/ฝน ${rain} | ${day.minimumTemperatureC.toFixed(0)}-${day.maximumTemperatureC.toFixed(0)} C`;
+  });
 }
 
-function warningMessage(alert: WarningAlertRecord, forecast: TakProvinceForecast | null) {
-  const weather = forecastLines(forecast);
+function warningMessage(alert: WarningAlertRecord, districtForecast: TakDistrictForecastResult | null) {
+  const weather = districtForecastLines(districtForecast);
   return [
     "FLOODWATCH TAK - EARLY WARNING",
     `ENGLISH\n${alert.titleEn}\n${alert.bodyEn}`,
     `မြန်မာ\n${alert.titleMy}\n${alert.bodyMy}`,
     `ไทย\n${alert.titleTh}\n${alert.bodyTh}`,
-    "WEATHER / မိုးလေဝသ / สภาพอากาศ",
+    "5-DISTRICT WEATHER / ခရိုင် ၅ ခု မိုးလေဝသ / พยากรณ์ 5 อำเภอ",
     ...weather,
-    `Forecast source / ခန့်မှန်းရင်းမြစ် / แหล่งพยากรณ์: TMD${forecast ? ` - ${forecast.sourceUrl}` : ""}`,
+    `Forecast source / ခန့်မှန်းရင်းမြစ် / แหล่งพยากรณ์: ${districtForecast?.source.shortName ?? "unavailable"}${districtForecast?.source.official ? " (official)" : " (model guidance)"}${districtForecast ? ` - ${districtForecast.source.sourceUrl}` : ""}`,
     `Area / ဧရိယာ / พื้นที่: ${alert.district}`,
     `Source / အရင်းအမြစ် / แหล่งข้อมูล: ${alert.sourceName}`,
     `Details / အသေးစိတ် / รายละเอียด: ${dashboardUrl(alert.id)}`,
@@ -112,8 +135,8 @@ export async function deliverLineWarningAlert(
     return { configured: false, recipients: subscriptions.length, attempted: 0, sent: 0, failed: 0, skipped: 0 };
   }
 
-  const forecast = await fetchTakProvinceForecast(8_000).catch(() => null);
-  const message = warningMessage(alert, forecast);
+  const districtForecast = await fetchTakDistrictForecasts().catch(() => null);
+  const message = warningMessage(alert, districtForecast);
 
   let sent = 0;
   let failed = 0;
