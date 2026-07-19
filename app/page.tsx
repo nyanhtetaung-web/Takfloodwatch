@@ -451,7 +451,8 @@ function RiverLevelChart({ station, rainfallStations, language, sourceUrl, tr }:
   const bankTone = station.bankDistanceM < 0 ? "above" : station.bankDistanceM <= 1 ? "near" : "below";
   const riskTone = station.situationLevel >= 5 ? "critical" : station.situationLevel >= 4 ? "warning" : station.situationLevel >= 3 ? "watch" : "normal";
   const ticks = Array.from({ length: 5 }, (_, index) => maximum - (range * index) / 4);
-  const rainMaximum = Math.max(10, Math.ceil((rainfall?.rainfall24hMm ?? 0) / 10) * 10);
+  const rainObservedMaximum = Math.max(rainfall?.rainfall24hMm ?? 0, rainfall?.rainfall1hMm ?? 0);
+  const rainMaximum = Math.max(1, Math.ceil(rainObservedMaximum * 1.25));
   const rainTicks = Array.from({ length: 5 }, (_, index) => (rainMaximum * index) / 4);
   const rainfall24hHeight = Math.min(plotHeight, ((rainfall?.rainfall24hMm ?? 0) / rainMaximum) * plotHeight);
   const rainfall1hHeight = Math.min(plotHeight, ((rainfall?.rainfall1hMm ?? 0) / rainMaximum) * plotHeight);
@@ -473,6 +474,7 @@ function RiverLevelChart({ station, rainfallStations, language, sourceUrl, tr }:
         <span><small>{tr("Reported bank level")}</small><strong>{bankLevel.toFixed(2)} m</strong><em>MSL</em></span>
       </div>
 
+      <div className="river-chart-scroll">
       <svg className="river-chart" viewBox="0 0 640 290" role="img" aria-label={`${tr("River level chart")}: ${station.name}`}>
         <text className="river-chart-title" x="320" y="22" textAnchor="middle">{localized(language, "Water level and rainfall", "မြစ်ရေအဆင့်နှင့် မိုးရေချိန်", "ระดับน้ำและปริมาณฝน")}</text>
         <rect className="river-plot-background" x={plot.left} y={plot.top} width={plot.right - plot.left} height={plotHeight} />
@@ -490,7 +492,7 @@ function RiverLevelChart({ station, rainfallStations, language, sourceUrl, tr }:
         {rainfall && <>
           <rect className="rainfall-bar rainfall-24h" x={currentX - 48} y={plot.top} width="72" height={rainfall24hHeight} />
           <rect className="rainfall-bar rainfall-1h" x={currentX - 10} y={plot.top} width="26" height={rainfall1hHeight} />
-          <text className="rainfall-value" x={currentX - 12} y={Math.min(plot.bottom - 5, plot.top + rainfall24hHeight + 12)} textAnchor="middle">{rainfall.rainfall24hMm.toFixed(1)} mm</text>
+          {rainfall.rainfall24hMm > 0 && <text className="rainfall-value" x={currentX - 12} y={Math.min(plot.bottom - 6, plot.top + Math.max(14, rainfall24hHeight - 5))} textAnchor="middle">{rainfall.rainfall24hMm.toFixed(1)} mm</text>}
         </>}
         <line className="bank-line" x1={plot.left} x2={plot.right} y1={bankY} y2={bankY} />
         <text className="bank-label" x={plot.right - 6} y={Math.max(43, bankY - 8)} textAnchor="end">{tr("Reported bank level")} {bankLevel.toFixed(2)} m</text>
@@ -513,6 +515,7 @@ function RiverLevelChart({ station, rainfallStations, language, sourceUrl, tr }:
           <text x="474" y="260">{localized(language, "Bank level", "ကမ်းပါးအဆင့်", "ระดับตลิ่ง")}</text>
         </g>
       </svg>
+      </div>
 
       <div className="river-source-row">
         <span><Activity size={14} /><small>{tr("Observed")}</small><b>{formatFeedTime(station.observedAt, language)}</b></span>
