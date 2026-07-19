@@ -2689,6 +2689,13 @@ html[lang="th"] .mobile-nav a {
   width: 100%;
 }
 
+.river-chart-scroll {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: #aab9ba transparent;
+  scrollbar-width: thin;
+}
+
 .river-plot-background {
   fill: #ecf8f7;
   stroke: #aab9ba;
@@ -2827,9 +2834,9 @@ html[lang="th"] .mobile-nav a {
   stroke-width: 4;
 }
 
-.river-point.current.rising { stroke: var(--red); }
-.river-point.current.falling { stroke: var(--teal); }
-.river-point.current.steady { stroke: #58747b; }
+.river-point.current.rising,
+.river-point.current.falling,
+.river-point.current.steady { stroke: #174f93; }
 
 .river-point-halo {
   animation: river-point-pulse 1.8s ease-out infinite;
@@ -2840,9 +2847,9 @@ html[lang="th"] .mobile-nav a {
   transform-origin: center;
 }
 
-.river-point-halo.rising { stroke: var(--red); }
-.river-point-halo.falling { stroke: var(--teal); }
-.river-point-halo.steady { stroke: #58747b; }
+.river-point-halo.rising,
+.river-point-halo.falling,
+.river-point-halo.steady { stroke: #174f93; }
 
 @keyframes river-point-pulse {
   0% { opacity: 0.58; transform: scale(0.58); }
@@ -4651,7 +4658,8 @@ html[lang="th"] .mobile-nav a {
   }
 
   .river-chart {
-    height: 240px;
+    height: 263px;
+    min-width: 580px;
   }
 
   .bank-label {
