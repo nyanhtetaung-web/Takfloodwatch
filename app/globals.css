@@ -2696,6 +2696,10 @@ html[lang="th"] .mobile-nav a {
   scrollbar-width: thin;
 }
 
+.river-chart-mobile-title {
+  display: none;
+}
+
 .river-plot-background {
   fill: #ecf8f7;
   stroke: #aab9ba;
@@ -4660,6 +4664,19 @@ html[lang="th"] .mobile-nav a {
   .river-chart {
     height: 263px;
     min-width: 580px;
+  }
+
+  .river-chart-mobile-title {
+    color: #1e665f;
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 800;
+    margin: 0.8rem 0 0.2rem;
+    text-align: center;
+  }
+
+  .river-chart-title {
+    display: none;
   }
 
   .bank-label {
