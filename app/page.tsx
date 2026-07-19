@@ -474,6 +474,7 @@ function RiverLevelChart({ station, rainfallStations, language, sourceUrl, tr }:
         <span><small>{tr("Reported bank level")}</small><strong>{bankLevel.toFixed(2)} m</strong><em>MSL</em></span>
       </div>
 
+      <p className="river-chart-mobile-title">{localized(language, "Water level and rainfall", "မြစ်ရေအဆင့်နှင့် မိုးရေချိန်", "ระดับน้ำและปริมาณฝน")}</p>
       <div className="river-chart-scroll">
       <svg className="river-chart" viewBox="0 0 640 290" role="img" aria-label={`${tr("River level chart")}: ${station.name}`}>
         <text className="river-chart-title" x="320" y="22" textAnchor="middle">{localized(language, "Water level and rainfall", "မြစ်ရေအဆင့်နှင့် မိုးရေချိန်", "ระดับน้ำและปริมาณฝน")}</text>
