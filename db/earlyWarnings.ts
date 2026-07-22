@@ -1,4 +1,5 @@
 import { ensureDatabaseSchema, getDatabase } from "./turso";
+import { isOperationallyCurrentWarning } from "../app/lib/waterAlertPolicy";
 
 export const alertDistricts = ["All districts", "Mae Sot", "Umphang", "Tha Song Yang", "Mae Ramat", "Phop Phra"] as const;
 export const alertLanguages = ["en", "my", "th"] as const;
@@ -104,7 +105,7 @@ export async function listPublishedAlerts(district?: AlertDistrict) {
       "SELECT * FROM warning_alerts WHERE status = 'published' AND expires_at > ? ORDER BY published_at DESC LIMIT 20",
       [now],
     );
-  return rows.map(mapAlert);
+  return rows.map(mapAlert).filter((alert) => isOperationallyCurrentWarning(alert));
 }
 
 export async function listPublishedAlertsForRenewal(hoursBack = 24) {
@@ -172,10 +173,10 @@ export async function expireWarningAlert(id: string) {
   return getWarningAlert(id);
 }
 
-export async function renewWarningAlert(id: string, expiresAt: string) {
+export async function renewWarningAlert(id: string, expiresAt: string, observedAt?: string | null) {
   const result = await execute(
-    "UPDATE warning_alerts SET expires_at = ? WHERE id = ? AND status = 'published' AND expires_at < ? RETURNING id",
-    [expiresAt, id, expiresAt],
+    "UPDATE warning_alerts SET expires_at = ?, observed_at = COALESCE(?, observed_at) WHERE id = ? AND status = 'published' AND expires_at < ? RETURNING id",
+    [expiresAt, observedAt ?? null, id, expiresAt],
   );
   return result.rows.length > 0;
 }
