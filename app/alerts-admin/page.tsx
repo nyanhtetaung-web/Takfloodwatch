@@ -123,9 +123,9 @@ export default function AlertsAdminPage() {
     setMessage("");
     try {
       const response = await fetch("/api/alerts/evaluate", { method: "POST", headers: authorization });
-      const result = await response.json() as { error?: string; flaggedStations?: number; draftsCreated?: number };
+      const result = await response.json() as { error?: string; flaggedStations?: number; emergencyStations?: number; staleStations?: number; draftsCreated?: number };
       if (!response.ok) throw new Error(result.error || "Government feeds could not be checked.");
-      setMessage(`Government feeds checked: ${result.flaggedStations ?? 0} level 4-5 station(s), ${result.draftsCreated ?? 0} new review draft(s).`);
+      setMessage(`Government feeds checked: ${result.flaggedStations ?? 0} fresh monitoring flag(s), ${result.emergencyStations ?? 0} emergency station(s), ${result.staleStations ?? 0} stale reading(s), ${result.draftsCreated ?? 0} new review draft(s).`);
       await loadAlerts();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Government feeds could not be checked.");
