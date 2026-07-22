@@ -1,5 +1,6 @@
 import { createAutomatedDraft, type AlertDistrict, type AlertSeverity, type WarningAlertRecord } from "../../../../db/earlyWarnings";
 import { isAlertEvaluator } from "../../../lib/alertAuth";
+import { isEmergencyWaterObservation, isFreshWaterObservation } from "../../../lib/waterAlertPolicy";
 import { GET as getGovernmentData } from "../../government-data/route";
 
 export const dynamic = "force-dynamic";
@@ -31,12 +32,15 @@ async function evaluate(request: Request) {
   const response = await getGovernmentData();
   if (!response.ok) return Response.json({ error: "Government feeds could not be evaluated." }, { status: 503 });
   const data = await response.json() as { water?: { stations?: WaterStation[]; sourceUrl?: string } | null };
-  const stations = (data.water?.stations ?? []).filter((station) => station.situationLevel >= 4 && districtMap[station.district]);
+  const monitoringStations = (data.water?.stations ?? []).filter(
+    (station) => station.situationLevel >= 4 && districtMap[station.district] && isFreshWaterObservation(station.observedAt),
+  );
+  const emergencyStations = monitoringStations.filter((station) => isEmergencyWaterObservation(station));
   const created: string[] = [];
 
-  for (const station of stations) {
+  for (const station of emergencyStations) {
     const district = districtMap[station.district];
-    const severity: AlertSeverity = station.situationLevel >= 5 ? "critical" : "warning";
+    const severity: AlertSeverity = "critical";
     const observedAt = station.observedAt || new Date().toISOString();
     const triggerKey = `thaiwater:${station.code}:${observedAt}:${station.situationLevel}`;
     const hours = 12 * 60 * 60 * 1000;
@@ -45,7 +49,7 @@ async function evaluate(request: Request) {
       status: "draft",
       severity,
       district,
-      titleEn: `${severity === "critical" ? "Very high" : "High"} water review: ${station.name}`,
+      titleEn: `Emergency water review: ${station.name}`,
       titleMy: `${severity === "critical" ? "အလွန်မြင့်မားသော" : "မြင့်မားသော"} ရေအဆင့် စစ်ဆေးရန် - ${station.name}`,
       titleTh: `ตรวจสอบระดับน้ำ${severity === "critical" ? "สูงมาก" : "สูง"}: ${station.name}`,
       bodyEn: `ThaiWater situation level ${station.situationLevel}; level ${station.levelMsl.toFixed(2)} m MSL. Staff must confirm the latest agency bulletin before publishing public instructions.`,
@@ -66,12 +70,17 @@ async function evaluate(request: Request) {
 
   return Response.json({
     evaluatedAt: new Date().toISOString(),
-    flaggedStations: stations.length,
-    activeFlags: stations.map((station) => ({
+    flaggedStations: monitoringStations.length,
+    emergencyStations: emergencyStations.length,
+    staleStations: (data.water?.stations ?? []).filter(
+      (station) => station.situationLevel >= 4 && districtMap[station.district] && !isFreshWaterObservation(station.observedAt),
+    ).length,
+    activeFlags: emergencyStations.map((station) => ({
       stationCode: station.code,
       district: districtMap[station.district],
       situationLevel: station.situationLevel,
       observedAt: station.observedAt,
+      bankDistanceM: station.bankDistanceM,
     })),
     draftsCreated: created.length,
     draftIds: created,
