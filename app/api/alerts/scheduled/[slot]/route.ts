@@ -1,4 +1,5 @@
 import {
+  expireWarningAlert,
   listPublishedAlerts,
   listPublishedAlertsForRenewal,
   pruneAlertDeliveryWindows,
@@ -8,6 +9,7 @@ import {
 } from "../../../../../db/earlyWarnings";
 import { isAlertEvaluator } from "../../../../lib/alertAuth";
 import { deliverWarningAcrossChannels } from "../../../../lib/alertDelivery";
+import { isThaiWaterWarning } from "../../../../lib/waterAlertPolicy";
 import { GET as evaluateGovernmentFeeds } from "../../evaluate/route";
 
 export const dynamic = "force-dynamic";
@@ -22,15 +24,13 @@ type ActiveFlag = {
   observedAt: string;
 };
 
-function isThaiWaterAlert(alert: WarningAlertRecord) {
-  return `${alert.sourceName} ${alert.sourceUrl ?? ""}`.toLowerCase().includes("thaiwater");
-}
-
-function matchingSituationLevel(alert: WarningAlertRecord, flags: ActiveFlag[]) {
-  return flags.reduce((highest, flag) => {
-    if (alert.district !== "All districts" && alert.district !== flag.district) return highest;
-    return Math.max(highest, flag.situationLevel);
-  }, 0);
+function matchingEmergencyFlag(alert: WarningAlertRecord, flags: ActiveFlag[]) {
+  if (alert.district === "All districts") return null;
+  return flags.reduce<ActiveFlag | null>((highest, flag) => {
+    if (alert.district !== flag.district) return highest;
+    if (!highest || flag.situationLevel > highest.situationLevel) return flag;
+    return highest;
+  }, null);
 }
 
 function dateInBangkok() {
@@ -65,14 +65,18 @@ export async function GET(request: Request, context: { params: Promise<{ slot: s
   const renewalCandidates = await listPublishedAlertsForRenewal();
   const renewedDistricts = new Set<string>();
   const renewedAlerts: string[] = [];
+  const expiredAlerts: string[] = [];
   const renewedUntil = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
 
   for (const alert of renewalCandidates) {
-    if (renewedDistricts.has(alert.district) || !isThaiWaterAlert(alert)) continue;
-    const situationLevel = matchingSituationLevel(alert, activeFlags);
-    const requiredLevel = alert.severity === "critical" ? 5 : 4;
-    if (situationLevel < requiredLevel) continue;
-    if (await renewWarningAlert(alert.id, renewedUntil)) renewedAlerts.push(alert.id);
+    if (!isThaiWaterWarning(alert)) continue;
+    const emergencyFlag = matchingEmergencyFlag(alert, activeFlags);
+    if (renewedDistricts.has(alert.district) || !emergencyFlag) {
+      await expireWarningAlert(alert.id);
+      expiredAlerts.push(alert.id);
+      continue;
+    }
+    if (await renewWarningAlert(alert.id, renewedUntil, emergencyFlag.observedAt)) renewedAlerts.push(alert.id);
     renewedDistricts.add(alert.district);
   }
 
@@ -98,6 +102,7 @@ export async function GET(request: Request, context: { params: Promise<{ slot: s
     windowKey,
     evaluation,
     renewedAlerts,
+    expiredAlerts,
     renewedUntil: renewedAlerts.length > 0 ? renewedUntil : null,
     activePublishedWarnings: publishedAlerts.length,
     reminderAlerts: reminders.length,
