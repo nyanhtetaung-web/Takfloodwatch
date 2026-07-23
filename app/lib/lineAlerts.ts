@@ -126,6 +126,76 @@ function warningMessage(alert: WarningAlertRecord, districtForecast: TakDistrict
   ].join("\n\n");
 }
 
+function forecastMessage(districtForecast: TakDistrictForecastResult | null) {
+  const weather = districtForecastLines(districtForecast);
+  return [
+    "FLOODWATCH TAK - 5-DISTRICT WEATHER FORECAST",
+    "Routine forecast. This message is not an emergency warning.",
+    "ပုံမှန် မိုးလေဝသခန့်မှန်းချက် ဖြစ်သည်။ အရေးပေါ်သတိပေးချက် မဟုတ်ပါ။",
+    "พยากรณ์อากาศตามกำหนด ข้อความนี้ไม่ใช่คำเตือนฉุกเฉิน",
+    ...weather,
+    `Forecast source / ခန့်မှန်းရင်းမြစ် / แหล่งพยากรณ์: ${districtForecast?.source.shortName ?? "unavailable"}${districtForecast?.source.official ? " (official)" : " (model guidance)"}${districtForecast ? ` - ${districtForecast.source.sourceUrl}` : ""}`,
+    `Dashboard / ဒက်ရှ်ဘုတ် / แดชบอร์ด: ${dashboardUrl()}`,
+  ].join("\n\n");
+}
+
+export async function deliverLineDistrictForecast(windowKey: string) {
+  const subscriptions = await listLineSubscriptionsForAlert("All districts");
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) {
+    return { configured: false, recipients: subscriptions.length, attempted: 0, sent: 0, failed: 0, skipped: 0 };
+  }
+
+  const districtForecast = await fetchTakDistrictForecasts().catch(() => null);
+  const message = forecastMessage(districtForecast);
+  const deliveryId = "WEATHER-5-DISTRICTS";
+  let sent = 0;
+  let failed = 0;
+  let attempted = 0;
+  let skipped = 0;
+
+  for (let offset = 0; offset < subscriptions.length; offset += 20) {
+    const batch = subscriptions.slice(offset, offset + 20);
+    await Promise.all(batch.map(async (subscription) => {
+      if (!await claimAlertDeliveryWindow(deliveryId, subscription.id, `line-forecast:${windowKey}`)) {
+        skipped += 1;
+        return;
+      }
+      attempted += 1;
+      try {
+        await sendLinePushText(subscription.userId, message);
+        sent += 1;
+        await recordAlertDelivery({
+          alertId: deliveryId,
+          subscriptionId: subscription.id,
+          status: "sent",
+          responseCode: 200,
+          error: null,
+        });
+      } catch (caught) {
+        failed += 1;
+        const error = caught as { statusCode?: number; message?: string };
+        await recordAlertDelivery({
+          alertId: deliveryId,
+          subscriptionId: subscription.id,
+          status: "failed",
+          responseCode: error.statusCode ?? null,
+          error: error.message?.slice(0, 500) ?? "LINE forecast delivery failed",
+        });
+      }
+    }));
+  }
+
+  return {
+    configured: true,
+    recipients: subscriptions.length,
+    attempted,
+    sent,
+    failed,
+    skipped,
+    source: districtForecast?.source.shortName ?? null,
+  };
+}
+
 export async function deliverLineWarningAlert(
   alert: WarningAlertRecord,
   options: { windowKey?: string; subscriptions?: LineAlertSubscriptionRecord[] } = {},
