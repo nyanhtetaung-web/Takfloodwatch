@@ -78,6 +78,8 @@ Government endpoints can be delayed, unavailable, or revised. Confirm important 
 
 Four scheduled alert cycles run in approximate Thailand-time windows around 01:00, 07:00, 13:00, and 19:00. Each cycle evaluates government feeds and creates idempotent drafts. It also repeats the latest active, staff-approved warning for each affected district, at most once per subscriber per window. No all-clear message or unreviewed draft is pushed automatically.
 
-ThaiWater Level 4 is displayed as monitoring information and never creates, renews, or sends an emergency warning. Automated review drafts require a fresh reading no more than three hours old and either ThaiWater Level 5 or water at/above the reported bank. Scheduled cycles immediately expire ThaiWater warnings that no longer match a fresh emergency condition; only the newest matching district warning can be renewed for another 12 hours. Station-based warnings cannot use the all-districts audience.
+Routine trilingual weather forecasts for all five districts are sent to LINE subscribers in the four scheduled Thailand-time windows, even when no flood warning is active. When an active warning is sent, it already contains the five-district forecast, so a duplicate routine forecast is not sent in that window.
+
+ThaiWater Level 4 and Level 5 are eligible for staff-approved emergency warnings only when the source reading is no more than three hours old. Scheduled cycles immediately expire ThaiWater warnings that no longer match a fresh Level 4-5 condition; only the newest matching district warning can be renewed for another 12 hours. Station-based warnings cannot use the all-districts audience.
 
 The Vercel configuration uses four distinct once-daily cron paths because Hobby projects allow a given cron job to run only once per day. Cron execution can occur at any point within the configured hour.
