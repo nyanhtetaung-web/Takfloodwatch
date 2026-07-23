@@ -139,10 +139,26 @@ function forecastMessage(districtForecast: TakDistrictForecastResult | null) {
   ].join("\n\n");
 }
 
-export async function deliverLineDistrictForecast(windowKey: string) {
-  const subscriptions = await listLineSubscriptionsForAlert("All districts");
+export async function deliverLineDistrictForecast(
+  windowKey: string,
+  options: { excludedDistricts?: WarningAlertRecord["district"][] } = {},
+) {
+  const allSubscriptions = await listLineSubscriptionsForAlert("All districts");
+  const excludedDistricts = new Set(options.excludedDistricts ?? []);
+  const subscriptions = allSubscriptions.filter((subscription) => (
+    excludedDistricts.size === 0
+    || (subscription.district !== "All districts" && !excludedDistricts.has(subscription.district))
+  ));
   if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) {
-    return { configured: false, recipients: subscriptions.length, attempted: 0, sent: 0, failed: 0, skipped: 0 };
+    return {
+      configured: false,
+      recipients: subscriptions.length,
+      excluded: allSubscriptions.length - subscriptions.length,
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+    };
   }
 
   const districtForecast = await fetchTakDistrictForecasts().catch(() => null);
@@ -188,6 +204,7 @@ export async function deliverLineDistrictForecast(windowKey: string) {
   return {
     configured: true,
     recipients: subscriptions.length,
+    excluded: allSubscriptions.length - subscriptions.length,
     attempted,
     sent,
     failed,
