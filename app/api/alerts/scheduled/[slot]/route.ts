@@ -82,15 +82,15 @@ export async function GET(request: Request, context: { params: Promise<{ slot: s
   }
 
   const publishedAlerts = await listPublishedAlerts();
-  const latestByDistrict = new Map<string, (typeof publishedAlerts)[number]>();
+  const latestByDistrict = new Map<AlertDistrict, (typeof publishedAlerts)[number]>();
   for (const alert of publishedAlerts) {
     if (!latestByDistrict.has(alert.district)) latestByDistrict.set(alert.district, alert);
   }
 
   const windowKey = `${dateInBangkok()}-${slot}`;
-  const forecastDelivery = publishedAlerts.length === 0
-    ? await deliverLineDistrictForecast(windowKey)
-    : null;
+  const forecastDelivery = await deliverLineDistrictForecast(windowKey, {
+    excludedDistricts: Array.from(latestByDistrict.keys()),
+  });
   const reminders = await Promise.all(Array.from(latestByDistrict.values(), async (alert) => ({
     alertId: alert.id,
     district: alert.district,
