@@ -33,14 +33,14 @@ async function evaluate(request: Request) {
   if (!response.ok) return Response.json({ error: "Government feeds could not be evaluated." }, { status: 503 });
   const data = await response.json() as { water?: { stations?: WaterStation[]; sourceUrl?: string } | null };
   const monitoringStations = (data.water?.stations ?? []).filter(
-    (station) => station.situationLevel >= 4 && districtMap[station.district] && isFreshWaterObservation(station.observedAt),
+    (station) => [4, 5].includes(station.situationLevel) && districtMap[station.district] && isFreshWaterObservation(station.observedAt),
   );
   const emergencyStations = monitoringStations.filter((station) => isEmergencyWaterObservation(station));
   const created: string[] = [];
 
   for (const station of emergencyStations) {
     const district = districtMap[station.district];
-    const severity: AlertSeverity = "critical";
+    const severity: AlertSeverity = station.situationLevel === 5 ? "critical" : "warning";
     const observedAt = station.observedAt || new Date().toISOString();
     const triggerKey = `thaiwater:${station.code}:${observedAt}:${station.situationLevel}`;
     const hours = 12 * 60 * 60 * 1000;
@@ -49,7 +49,7 @@ async function evaluate(request: Request) {
       status: "draft",
       severity,
       district,
-      titleEn: `Emergency water review: ${station.name}`,
+      titleEn: `${severity === "critical" ? "Very high" : "High"} water review: ${station.name}`,
       titleMy: `${severity === "critical" ? "အလွန်မြင့်မားသော" : "မြင့်မားသော"} ရေအဆင့် စစ်ဆေးရန် - ${station.name}`,
       titleTh: `ตรวจสอบระดับน้ำ${severity === "critical" ? "สูงมาก" : "สูง"}: ${station.name}`,
       bodyEn: `ThaiWater situation level ${station.situationLevel}; level ${station.levelMsl.toFixed(2)} m MSL. Staff must confirm the latest agency bulletin before publishing public instructions.`,
@@ -73,7 +73,7 @@ async function evaluate(request: Request) {
     flaggedStations: monitoringStations.length,
     emergencyStations: emergencyStations.length,
     staleStations: (data.water?.stations ?? []).filter(
-      (station) => station.situationLevel >= 4 && districtMap[station.district] && !isFreshWaterObservation(station.observedAt),
+      (station) => [4, 5].includes(station.situationLevel) && districtMap[station.district] && !isFreshWaterObservation(station.observedAt),
     ).length,
     activeFlags: emergencyStations.map((station) => ({
       stationCode: station.code,
