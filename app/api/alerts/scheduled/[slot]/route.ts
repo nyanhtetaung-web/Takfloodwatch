@@ -9,6 +9,7 @@ import {
 } from "../../../../../db/earlyWarnings";
 import { isAlertEvaluator } from "../../../../lib/alertAuth";
 import { deliverWarningAcrossChannels } from "../../../../lib/alertDelivery";
+import { deliverLineDistrictForecast } from "../../../../lib/lineAlerts";
 import { isThaiWaterWarning } from "../../../../lib/waterAlertPolicy";
 import { GET as evaluateGovernmentFeeds } from "../../evaluate/route";
 
@@ -87,6 +88,9 @@ export async function GET(request: Request, context: { params: Promise<{ slot: s
   }
 
   const windowKey = `${dateInBangkok()}-${slot}`;
+  const forecastDelivery = publishedAlerts.length === 0
+    ? await deliverLineDistrictForecast(windowKey)
+    : null;
   const reminders = await Promise.all(Array.from(latestByDistrict.values(), async (alert) => ({
     alertId: alert.id,
     district: alert.district,
@@ -94,7 +98,7 @@ export async function GET(request: Request, context: { params: Promise<{ slot: s
     delivery: await deliverWarningAcrossChannels(alert, { windowKey }),
   })));
 
-  console.info("[scheduled-alerts]", JSON.stringify({ slot, windowKey, reminders }));
+  console.info("[scheduled-alerts]", JSON.stringify({ slot, windowKey, forecastDelivery, reminders }));
 
   return Response.json({
     scheduledAt: new Date().toISOString(),
@@ -105,6 +109,7 @@ export async function GET(request: Request, context: { params: Promise<{ slot: s
     expiredAlerts,
     renewedUntil: renewedAlerts.length > 0 ? renewedUntil : null,
     activePublishedWarnings: publishedAlerts.length,
+    forecastDelivery,
     reminderAlerts: reminders.length,
     reminders,
   }, { headers: { "Cache-Control": "no-store" } });
