@@ -31,7 +31,7 @@ export function isFreshWaterObservation(observedAt: string, now = Date.now()) {
 
 export function isEmergencyWaterObservation(observation: WaterObservation, now = Date.now()) {
   if (!isFreshWaterObservation(observation.observedAt, now)) return false;
-  return observation.situationLevel >= 5 || observation.bankDistanceM <= 0;
+  return observation.situationLevel === 4 || observation.situationLevel === 5;
 }
 
 export function isThaiWaterWarning(warning: SourcedWarning) {
